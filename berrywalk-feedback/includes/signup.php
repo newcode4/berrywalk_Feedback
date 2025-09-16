@@ -1,18 +1,22 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
+// ❌ 잘못된 helpers.php → ✅ helper.php
 require_once __DIR__ . '/helper.php';
 
-/** 대표 회원가입 */
+// 대표 회원가입
 add_shortcode('bwf_signup_representative', function () {
+  // 필요한 CSS/JS 로드
+  wp_enqueue_style('bwf-forms');
+  wp_enqueue_script('bwf-js');
+
   if (is_user_logged_in()) {
     $u = wp_get_current_user();
-    return '<div class="bwf-form"><p><strong>' . bwf_esc($u->user_login) . '</strong>로 로그인됨.</p>
-            <p><a href="' . esc_url(home_url('/owner-questions/')) . '">질문 등록하기</a></p></div>';
+    return '<div class="bwf-form"><p><strong>'.bwf_esc($u->user_login).'</strong>로 로그인됨.</p>
+            <p><a href="'.esc_url(home_url('/owner-questions/')).'">질문 등록하기</a></p></div>';
   }
 
   $nonce = wp_create_nonce('bwf_signup_rep');
-  // Sticky
   $S = function($k,$d=''){ return isset($_POST[$k]) ? esc_attr($_POST[$k]) : $d; };
 
   ob_start(); ?>
@@ -20,18 +24,18 @@ add_shortcode('bwf_signup_representative', function () {
     <input type="hidden" name="bwf_role" value="representative">
     <input type="hidden" name="bwf_nonce" value="<?php echo esc_attr($nonce); ?>">
 
-    <!-- 로그인 정보 먼저 -->
+    <!-- 로그인 정보: 2열 정렬 / 아이디를 가장 앞에 -->
     <div>
-      <label>이메일 <span class="bwf-required">*</span></label>
-      <input type="email" name="user_email" value="<?php echo $S('user_email'); ?>" required>
+      <label>아이디(영문/숫자) <span class="bwf-required">*</span></label>
+      <input type="text" name="user_login" value="<?php echo $S('user_login'); ?>" pattern="[A-Za-z0-9_\.\-]{4,32}" required>
     </div>
     <div>
       <label>비밀번호 <span class="bwf-required">*</span></label>
       <input type="password" name="user_pass" required>
     </div>
     <div>
-      <label>아이디(영문/숫자) <span class="bwf-required">*</span></label>
-      <input type="text" name="user_login" value="<?php echo $S('user_login'); ?>" pattern="[A-Za-z0-9_\.\-]{4,32}" required>
+      <label>이메일 <span class="bwf-required">*</span></label>
+      <input type="email" name="user_email" value="<?php echo $S('user_email'); ?>" required>
     </div>
     <div>
       <label>이름 <span class="bwf-required">*</span></label>
@@ -80,11 +84,12 @@ add_shortcode('bwf_signup_representative', function () {
     </div>
     <div>
       <label>연락 가능한 시간대 <span class="bwf-required">*</span></label>
-      <input type="text" name="bw_contact_window" value="<?php echo $S('bw_contact_window','예: 평일 13:00~18:00'); ?>" required>
+      <input type="text" name="bw_contact_window" value="<?php echo $S('bw_contact_window'); ?>" placeholder="예: 평일 13:00~18:00" required>
     </div>
+
     <div class="bwf-col-full"><hr></div>
 
-    <!-- 소셜 -->
+    <!-- 소셜 링크 -->
     <div class="bwf-col-full"><strong>소셜 링크(있으면 입력)</strong></div>
     <?php foreach(bwf_social_fields() as $key=>$label): ?>
       <div>
@@ -255,7 +260,8 @@ add_action('init', function(){
     }
   }
 
-  // 성공 리디렉트
-  $dest = ($role==='representative') ? home_url('/owner-questions/?join=ok') : home_url('/?join=ok');
+  // 성공 리디렉트: 대표는 /info-feedback 으로 이동
+  $role  = sanitize_text_field($_POST['bwf_role'] ?? '');
+  $dest = ($role==='representative') ? home_url('/info-feedback/?join=ok') : home_url('/?join=ok');
   wp_redirect($dest); exit;
 });

@@ -9,17 +9,17 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-required{color:#ef4444}
 
 /* 입력 */
-.bwf-form input,.bwf-form select,.bwf-form textarea{
+.bwf-form input, .bwf-form select, .bwf-form textarea{
   width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;
   transition:border-color .2s, box-shadow .2s;background:#fff
 }
 .bwf-form textarea{min-height:120px;resize:vertical}
-.bwf-form input:focus,.bwf-form select:focus,.bwf-form textarea:focus{
+.bwf-form input:focus, .bwf-form select:focus, .bwf-form textarea:focus{
   border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.2);outline:0
 }
-.bwf-actions{text-align:right}
+.bwf-actions{text-align:center}
 .bwf-form button{padding:14px 20px;background:linear-gradient(90deg,#6366f1,#0ea5e9);
-  color:#fff;border:0;border-radius:10px;font-weight:700;cursor:pointer}
+  color:#fff;border:0;border-radius:9999px;font-weight:700;cursor:pointer}
 .bwf-form hr{border:0;border-top:1px solid #eee;margin:8px 0}
 
 /* 진행/카운터/오류 */
