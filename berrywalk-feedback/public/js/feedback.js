@@ -183,3 +183,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updateCounters(); // 초기 렌더
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const phs = [document.getElementById('bwf-phone'), document.getElementById('bwf-phone-admin')].filter(Boolean);
+  phs.forEach(phone=>{
+    const fmt = v => {
+      const d = v.replace(/\D/g,'').slice(0,11);
+      if (!d.startsWith('010')) return d;
+      if (d.length <= 3) return d;
+      if (d.length <= 7) return d.slice(0,3)+'-'+d.slice(3);
+      return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7);
+    };
+    const validate = () => {
+      const ok = /^010-\d{4}-\d{4}$/.test(phone.value);
+      phone.setCustomValidity(ok ? '' : '010-1234-5678 형식만 허용됩니다.');
+    };
+    ['input','paste','blur','change'].forEach(ev=>{
+      phone.addEventListener(ev, ()=>{
+        phone.value = fmt(phone.value);
+        validate();
+      }, {passive:true});
+    });
+  });
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('.bwf-form');
+  if (!form) return;
+
+  // 진행바가 없으면 주입
+  if (!form.querySelector('.bwf-topwrap')) {
+    const box = document.createElement('div');
+    box.className = 'bwf-topwrap';
+    box.innerHTML = `
+      <div class="bwf-top-title">진행 현황</div>
+      <div id="bwf-progress"><span class="bar"></span><span class="label"></span></div>
+      <div class="bwf-helper">작성 <b class="done">0</b>/<b class="total">6</b> 문항 <span class="hint">각 문항 최소 50자</span></div>
+    `;
+    form.prepend(box);
+  }
+
+  // 필드 수집(6문항 규칙)
+  const F = {
+    problem: form.querySelector('textarea[name="problem"]'),
+    value: form.querySelector('textarea[name="value"]'),
+    ideal: form.querySelector('textarea[name="ideal_customer"]'),
+    ask3: form.querySelectorAll('textarea[data-group="ask3"]'), // q1 q2 q3
+    one: form.querySelector('input[name="one_question"]'),
+    diff: form.querySelector('textarea[name="competitors"]')
+  };
+
+  // 각 textarea 하단에 글자수 메타 주입
+  form.querySelectorAll('textarea').forEach(t=>{
+    if (!t.parentElement.querySelector('.bwf-count')) {
+      const m = document.createElement('div');
+      m.className = 'bwf-count';
+      m.innerHTML = `<span class="now">0자</span><span class="need">50자 이상</span>`;
+      t.parentElement.appendChild(m);
+    }
+  });
+
+  const top = form.querySelector('.bwf-topwrap');
+  const doneEl = top.querySelector('.done');
+  const totalEl = top.querySelector('.total'); totalEl.textContent = '6';
+  const bar = top.querySelector('.bar'); const label = top.querySelector('.label');
+  const MIN = 50;
+
+  const len = el => (el?.value || '').trim().length;
+  const okT = el => el && len(el) >= (parseInt(el.dataset.minlength || MIN,10));
+  const okAsk3 = () => { let ok=true; F.ask3.forEach(t=>{ if(!okT(t)) ok=false; }); return ok; };
+  const okOne = () => (F.one?.value || '').trim().length>0;
+
+  const update = () => {
+    // ①②③ + ④(ask3합) + ⑤(one) + ⑥(diff)
+    let done=0;
+    if (okT(F.problem)) done++;
+    if (okT(F.value)) done++;
+    if (okT(F.ideal)) done++;
+    if (okAsk3()) done++;
+    if (okOne()) done++;
+    if (okT(F.diff)) done++;
+
+    doneEl.textContent = done;
+    const p = Math.round(done/6*100);
+    bar.style.width = p+'%';
+    label.textContent = `진행률 ${p}%`;
+
+    // 글자수 표시/남은 글자
+    form.querySelectorAll('textarea').forEach(t=>{
+      const n = len(t), min = parseInt(t.dataset.minlength || MIN,10);
+      const wrap = t.parentElement.querySelector('.bwf-count');
+      if (wrap) {
+        wrap.querySelector('.now').textContent = `${n}자`;
+        wrap.querySelector('.need').textContent = n>=min ? '충분합니다' : `+${min-n}자 더 입력`;
+      }
+    });
+  };
+
+  form.querySelectorAll('textarea,input[type="text"]').forEach(el=>{
+    el.addEventListener('input', update, {passive:true});
+    el.addEventListener('change', update, {passive:true});
+  });
+
+  update(); // 초기 렌더
+});

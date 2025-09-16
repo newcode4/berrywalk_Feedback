@@ -79,17 +79,11 @@ add_shortcode('bwf_signup_representative', function () {
       <input type="text" name="source_etc" id="bwf-source-etc" placeholder="기타 경로" style="display:none;" value="<?php echo $S('source_etc'); ?>">
     </div>
     <div>
-      <label>휴대폰 번호(숫자만) <span class="bwf-required">*</span></label>
-      <input
-        type="tel"
-        name="bw_phone"
-        id="bwf-phone"
-        inputmode="numeric"
-        autocomplete="tel"
+      <label>휴대폰 번호 <span class="bwf-required">*</span></label>
+        <input type="tel" name="bw_phone" id="bwf-phone"
+        inputmode="numeric" autocomplete="tel"
         placeholder="010-1234-5678"
-        maxlength="13"
-        pattern="^010-\d{4}-\d{4}$"
-        required>
+        maxlength="13" pattern="^010-\d{4}-\d{4}$" required>
     </div>
     <div>
       <label>연락 가능한 시간대 <span class="bwf-required">*</span></label>
@@ -224,13 +218,12 @@ add_action('init', function(){
     }
   }
   if ($role === 'representative') {
-  $raw = isset($_POST['bw_phone']) ? $_POST['bw_phone'] : '';
-  $digits = preg_replace('/\D+/','', $raw);
-  if (strlen($digits) !== 11 || strpos($digits, '010') !== 0) {
-    $_POST['bwf_error'] = '휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.';
-    return;
-  }
-  $_POST['bw_phone'] = preg_replace('/^(\d{3})(\d{4})(\d{4})$/', '$1-$2-$3', $digits); // 저장은 하이픈 포함
+ $raw = isset($_POST['bw_phone']) ? $_POST['bw_phone'] : '';
+$digits = preg_replace('/\D+/','',$raw);
+if (strlen($digits)!==11 || strpos($digits,'010')!==0) {
+  $_POST['bwf_error'] = '휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.'; return;
+}
+$_POST['bw_phone'] = preg_replace('/^(\d{3})(\d{4})(\d{4})$/','$1-$2-$3',$digits);
 }
 
   if ($err) {

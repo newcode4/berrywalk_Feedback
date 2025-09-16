@@ -28,12 +28,16 @@ add_shortcode('bw_owner_form', function(){
     ];
     update_user_meta($uid,'bwf_questions',$data);
     $saved = $data;
-    $msg = '<p style="color:#10b981">저장 완료. 아래 링크로 피드백을 받을 수 있습니다.</p>';
+    // $msg = '<p style="color:#10b981">저장 완료. 아래 링크로 피드백을 받을 수 있습니다.</p>';
+    /* 기존: 피드백 링크 생성 섹션 전체 주석 처리 */
+
+echo '<div class="bwf-success">저장 완료. 대표 질문이 저장되었습니다.<br>관리자 &gt; Berrywalk Feedback &gt; <b>대표 질문지</b> 메뉴에서 언제든 확인/검색할 수 있습니다.</div>';
+
   }
 
   // 피드백 링크
   $fb_page = get_page_by_path(BWF_FEEDBACK_PAGE_SLUG);
-  $feedback_url = add_query_arg(['rep'=>$uid], $fb_page ? get_permalink($fb_page) : home_url('/'.BWF_FEEDBACK_PAGE_SLUG.'/'));
+//   $feedback_url = add_query_arg(['rep'=>$uid], $fb_page ? get_permalink($fb_page) : home_url('/'.BWF_FEEDBACK_PAGE_SLUG.'/'));
 
   wp_enqueue_style('bwf-forms');
     wp_enqueue_script('bwf-js');

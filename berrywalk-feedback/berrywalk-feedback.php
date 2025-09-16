@@ -33,6 +33,8 @@ require_once BWF_DIR.'includes/representative-form.php'; // 대표 질문지
 require_once BWF_DIR.'includes/feedback-form.php';       // 고객 피드백 (저장 단일화)
 require_once BWF_DIR.'includes/crm.php';                 // CRM 테이블
 require_once BWF_DIR.'includes/admin-users.php';         // ✅ 사용자 화면(컬럼/프로필)
+require_once BWF_DIR.'includes/questions-admin.php';
+
 
 /** Assets */
 add_action('wp_enqueue_scripts', function () {
