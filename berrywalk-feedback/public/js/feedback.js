@@ -1,66 +1,98 @@
-(function($){
-  $(function(){
+jQuery(function($){
+  // 글자수 + 진행도(그룹) ------------------------------------
+  function computeProgress(){
+    // 문항 묶음: ask3 그룹(고객에게 물어보고 싶은 3가지)은 하나로 카운트
+    const $targets = $('textarea[data-minlength]');
+    const groups = {};         // {groupKey: [textarea, ...]}
+    const single = [];         // 비그룹 항목
 
-    /** 기타 경로 토글 */
-    function toggleEtc(sel, input){
-      var v = $(sel).val();
-      if(v && v.indexOf('etc') === 0){ $(input).show(); } else { $(input).hide().val(''); }
-    }
-    $('#bwf-source').on('change', function(){ toggleEtc(this, '#bwf-source-etc'); });
-    $('#bwf-source-fb').on('change', function(){ toggleEtc(this, '#bwf-source-etc-fb'); });
-    toggleEtc('#bwf-source', '#bwf-source-etc');
-    toggleEtc('#bwf-source-fb', '#bwf-source-etc-fb');
-
-    /** 휴대폰 하이픈(간단) */
-    $('#bwf-phone').on('input', function(){
-      var n = $(this).val().replace(/\D+/g,'');
-      if(n.length>=11) n = n.replace(/(\d{3})(\d{4})(\d{4}).*/,'$1-$2-$3');
-      else if(n.length>=10) n = n.replace(/(\d{3})(\d{3})(\d{4}).*/,'$1-$2-$3');
-      $(this).val(n);
+    $targets.each(function(){
+      const $t = $(this);
+      const g = $t.data('group') || null;
+      if (g) {
+        if (!groups[g]) groups[g] = [];
+        groups[g].push($t);
+      } else {
+        single.push($t);
+      }
+      // 글자수 카운터 갱신
+      const cur = $t.val().length;
+      const min = parseInt($t.data('minlength'), 10) || 0;
+      $t.siblings('.bwf-helper').find('.bwf-counter').text(`${cur}/${min}`);
     });
 
-    /** 카운터 + Sticky 진행률 */
-    function updateCounters(){
-      var total = 0, answered = 0;
-      $('textarea[data-minlength]').each(function(){
-        total++;
-        var $t = $(this), val = $.trim($t.val()), min = parseInt($t.data('minlength'),10)||0;
-        $t.siblings('.bwf-helper').find('.bwf-counter').text(val.length + '자');
-        if(val.length >= min) answered++;
-      });
-      $('#bwf-total').text(total);
-      $('#bwf-answered').text(answered);
-      var pct = total ? Math.round(answered/total*100) : 0;
-      $('#bwf-progress .bwf-bar').css('width', pct+'%');
-    }
-    $(document).on('input', 'textarea[data-minlength]', updateCounters);
-    updateCounters();
+    // 총 문항 수 = 비그룹 개수 + 그룹 수
+    const total = single.length + Object.keys(groups).length;
 
-    /** 클라이언트 유효성 검사: 누락 항목 팝업 + 스크롤 + 빨간 테두리 */
-    $(document).on('submit','.bwf-form', function(e){
-      var $form = $(this), missing = [];
-      $form.find('.bwf-invalid').removeClass('bwf-invalid');
+    // 완료 수 계산(비그룹은 개별, 그룹은 전원 충족 시 1)
+    let done = 0;
+    single.forEach($t=>{
+      const cur = $t.val().length, min = parseInt($t.data('minlength'),10)||0;
+      if (cur >= min) done++;
+    });
+    Object.values(groups).forEach(list=>{
+      const allOk = list.every($t => ($t.val().length >= (parseInt($t.data('minlength'),10)||0)));
+      if (allOk) done++;
+    });
 
-      $form.find('[required]').each(function(){
-        var ok = true, $f = $(this);
-        if($f.is('textarea') && $f.data('minlength')){
-          ok = $.trim($f.val()).length >= parseInt($f.data('minlength'),10);
-        }else{
-          ok = $.trim($f.val()) !== '';
-        }
-        if(!ok){
-          var label = $f.closest('label').text() || $f.attr('name');
-          missing.push($.trim(label));
-          $f.addClass('bwf-invalid');
-        }
-      });
+    const pct = total ? Math.round((done/total)*100) : 0;
+    $('.bwf-topcount .done').text(done);
+    $('.bwf-topcount .total').text(total);
+    $('#bwf-progress .bar').css('width', pct+'%');
+    $('#bwf-progress .label').text(pct+'%');
+  }
 
-      if(missing.length){
-        e.preventDefault();
-        alert('필수 항목이 누락되었습니다:\n- ' + missing.join('\n- '));
-        $('html,body').animate({scrollTop: $('.bwf-invalid').first().offset().top - 80}, 200);
+  // 입력 시 즉시 반영
+  $(document).on('input', 'textarea[data-minlength]', computeProgress);
+
+  // 제출 검증 -------------------------------------------------
+  $('form.bwf-form').on('submit', function(e){
+    let ok = true, firstBad = null;
+
+    // 필수 input/select
+    $(this).find('[required]').each(function(){
+      const el = this;
+      if (!el.value || (el.tagName==='SELECT' && !el.value)) {
+        ok = false;
+        $(el).addClass('bwf-invalid');
+        if (!firstBad) firstBad = el;
+      } else {
+        $(el).removeClass('bwf-invalid');
       }
     });
 
+    // 텍스트영역: 100자 최소
+    $(this).find('textarea[data-minlength]').each(function(){
+      const $t = $(this);
+      const min = parseInt($t.data('minlength'),10) || 0;
+      if ($t.val().length < min) {
+        ok = false;
+        $t.addClass('bwf-invalid');
+        if (!firstBad) firstBad = $t[0];
+      } else {
+        $t.removeClass('bwf-invalid');
+      }
+    });
+
+    if (!ok) {
+      e.preventDefault();
+      const $p = $(firstBad).closest('.bwf-field, div');
+      if ($p.length) $('html,body').animate({scrollTop: $p.offset().top - 100}, 300);
+      alert('필수 항목이 누락되었거나 최소 글자 수를 만족하지 못했습니다. 빨간 표시 항목을 확인해 주세요.');
+    }
   });
-})(jQuery);
+
+  // “알게 된 경로 = 기타” 토글(대표/회원가입 공통)
+  function toggleEtc(){
+    const $sel = $('#bwf-source');
+    const $etc = $('#bwf-source-etc');
+    if ($sel.length && $etc.length) {
+      $etc.toggle($sel.val()==='etc');
+    }
+  }
+  $(document).on('change','#bwf-source', toggleEtc);
+  toggleEtc();
+
+  // 초기 계산
+  computeProgress();
+});
