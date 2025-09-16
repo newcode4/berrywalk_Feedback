@@ -5,8 +5,20 @@ add_shortcode('bw_feedback_form', function () {
   wp_enqueue_style('bwf-forms');
   wp_enqueue_script('bwf-feedback');
 
-  $rep_id = intval($_GET['rep'] ?? 0); // 대표 사용자 ID
-  if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
+  $rep_id = intval($_GET['rep'] ?? 0);
+if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
+
+    // ✅ 대표가 저장한 질문 세트 로드
+    $qset = get_user_meta($rep_id, 'bwf_questions', true);
+    $qset = is_array($qset) ? $qset : [];
+    $problem   = $qset['problem']        ?? '';
+    $value     = $qset['value']          ?? '';
+    $ideal     = $qset['ideal_customer'] ?? '';
+    $q1        = $qset['q1'] ?? '';
+    $q2        = $qset['q2'] ?? '';
+    $q3        = $qset['q3'] ?? '';
+    $oneQ      = $qset['one_question']   ?? '';
+    $diff      = $qset['competitors']    ?? '';
 
   // 대표가 작성한 3가지 질문 불러오기(예: user_meta 또는 post_meta에서 가져오는 부분은 기존 로직 유지)
   // 아래는 예시. 실제 저장 위치에 맞춰 수정하세요.
@@ -36,7 +48,18 @@ add_shortcode('bw_feedback_form', function () {
       <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
     </div>
 
-    <h2 class="bwf-col-full">대표님 핵심 질문지</h2>
+    <h2 class="bwf-col-full">대표 질문 요약</h2>
+    <ul class="bwf-rep">
+    <li><b>① 가장 큰 고민:</b> <?php echo esc_html($problem); ?></li>
+    <li><b>② 핵심 가치(대표 생각):</b> <?php echo esc_html($value); ?></li>
+    <li><b>③ 이상적 타겟:</b> <?php echo esc_html($ideal); ?></li>
+    <li><b>④-1 맞춤 질문:</b> <?php echo esc_html($q1); ?></li>
+    <li><b>④-2 맞춤 질문:</b> <?php echo esc_html($q2); ?></li>
+    <li><b>④-3 맞춤 질문:</b> <?php echo esc_html($q3); ?></li>
+    <li><b>⑤ 1:1 한 가지:</b> <?php echo esc_html($oneQ); ?></li>
+    <li><b>⑥ 경쟁사/차별:</b> <?php echo esc_html($diff); ?></li>
+    </ul>
+
 
     <!-- 1 -->
     <div class="bwf-col-full bwf-field">

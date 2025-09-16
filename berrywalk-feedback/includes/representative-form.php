@@ -52,22 +52,22 @@ add_shortcode('bw_owner_form', function(){
 
       <!-- 본질 질문 -->
       <div class="bwf-col-full">
-        <label>현재 비즈니스에서 가장 큰 고민은 무엇인가요? <span class="bwf-required">*</span></label>
-        <textarea name="problem" required data-minlength="100" placeholder="예: 신규 고객 유입이 너무 어렵습니다..."><?php echo esc_textarea($S('problem')); ?></textarea>
+        <label>1.현재 비즈니스에서 가장 큰 고민은 무엇인가요? <span class="bwf-required">*</span></label>
+        <textarea name="problem" required data-minlength="50" placeholder="예: 신규 고객 유입이 너무 어렵습니다..."><?php echo esc_textarea($S('problem')); ?></textarea>
       </div>
       <div class="bwf-col-full">
-        <label>우리 서비스가 고객의 ‘어떤 문제’를 해결하나요? <span class="bwf-required">*</span></label>
-        <textarea name="value" required data-minlength="100" placeholder="예: 바쁜 직장인에게 집밥처럼 건강한 한 끼를 배달..."><?php echo esc_textarea($S('value')); ?></textarea>
+        <label>2.우리 서비스가 고객의 ‘어떤 문제’를 해결하나요? <span class="bwf-required">*</span></label>
+        <textarea name="value" required data-minlength="50" placeholder="예: 바쁜 직장인에게 집밥처럼 건강한 한 끼를 배달..."><?php echo esc_textarea($S('value')); ?></textarea>
       </div>
       <div class="bwf-col-full">
-        <label>이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요? <span class="bwf-required">*</span></label>
-        <textarea name="ideal_customer" required data-minlength="100" placeholder="예: 운동은 하고 싶지만 시간/비용이 부족한 20대 대학생..."><?php echo esc_textarea($S('ideal_customer')); ?></textarea>
+        <label>3.이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요? <span class="bwf-required">*</span></label>
+        <textarea name="ideal_customer" required data-minlength="50" placeholder="예: 운동은 하고 싶지만 시간/비용이 부족한 20대 대학생..."><?php echo esc_textarea($S('ideal_customer')); ?></textarea>
       </div>
 
       <div class="bwf-col-full"><hr></div>
 
       <!-- 고객에게 물어보고 싶은 3가지 (먼저) -->
-      <div class="bwf-col-full"><strong>고객에게 물어보고 싶은 3가지</strong></div>
+      <div class="bwf-col-full"><strong>4.고객에게 물어보고 싶은 3가지</strong></div>
         <div class="bwf-grid-2 bwf-col-full">
         <div>
             <label>질문 1</label>
@@ -86,14 +86,14 @@ add_shortcode('bw_owner_form', function(){
       <!-- 타겟 1:1 한 가지 -->
       <div class="bwf-col-full"><hr></div>
       <div class="bwf-col-full">
-        <label>타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
+        <label>5.타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
         <input type="text" name="one_question" value="<?php echo esc_attr($S('one_question')); ?>" placeholder="예: 우리 서비스의 어떤 점이 가장 도움이 되었나요?" required>
       </div>
 
       <!-- 경쟁사 -->
       <div class="bwf-col-full">
-        <label>경쟁사와의 차별점은? <span class="bwf-required">*</span></label>
-        <textarea name="competitors" required data-minlength="100" placeholder="예: A사는 저렴하지만 품질 낮음, B사는 고품질이나 비쌈..."><?php echo esc_textarea($S('competitors')); ?></textarea>
+        <label>6.경쟁사와의 차별점은? <span class="bwf-required">*</span></label>
+        <textarea name="competitors" required data-minlength="50" placeholder="예: A사는 저렴하지만 품질 낮음, B사는 고품질이나 비쌈..."><?php echo esc_textarea($S('competitors')); ?></textarea>
       </div>
 
       <div class="bwf-col-full bwf-actions">

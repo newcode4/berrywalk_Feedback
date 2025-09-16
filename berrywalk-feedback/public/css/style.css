@@ -32,3 +32,18 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-error{color:#ef4444;margin-top:4px;width:100%}
 .bwf-invalid{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.15) !important}
 .bwf-error-text{color:#ef4444;margin-bottom:8px}
+
+/* 폰트/여백 */
+.bwf-form { font-size: 16.5px; line-height: 1.7; }
+.bwf-form h2, .bwf-form h3 { margin: 28px 0 12px; }
+.bwf-form label { display:block; font-weight:600; margin: 16px 0 8px; }
+.bwf-form textarea, .bwf-form input[type="text"], .bwf-form input[type="url"] { padding: 12px 14px; }
+
+/* 상단 진행바 스티키 */
+.bwf-sticky, .bwf-topcount { position: sticky; top: 0; background:#fff; z-index: 40; }
+.bwf-topcount { padding: 10px 14px; border-bottom:1px solid #eee; font-weight:600; }
+#bwf-progress { position: relative; height: 10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
+#bwf-progress .bar { position:absolute; left:0; top:0; height:100%; width:0%; background: linear-gradient(90deg,#0ea5e9,#6366f1); }
+#bwf-progress .label { position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
+.bwf-helper { display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-top:6px; }
+.bwf-helper .bwf-counter { font-variant-numeric: tabular-nums; }
