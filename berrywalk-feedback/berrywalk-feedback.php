@@ -2,7 +2,7 @@
 /*
 Plugin Name: Berrywalk Feedback
 Description: 대표 질문 등록 + 피드백 설문 + CRM
-Version: 0.2.1
+Version: 0.2.2
 Author: Berrywalk
 */
 
@@ -22,7 +22,7 @@ $updateChecker->getVcsApi()->enableReleaseAssets();
 
 
 // 상수
-define('BWF_VER','0.2.1');
+define('BWF_VER','0.2.2');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
