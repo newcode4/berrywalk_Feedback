@@ -2,7 +2,7 @@
 /*
 Plugin Name: Berrywalk Feedback
 Description: 대표 질문 등록 + 피드백 설문 + CRM
-Version: 0.1.1
+Version: 0.1.2
 Author: Berrywalk
 */
 
