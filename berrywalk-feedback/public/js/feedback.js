@@ -1,22 +1,7 @@
 (function($){
   $(function(){
 
-    // 최소 글자수 제한 (100자 이상)
-    $(".bwf-form textarea[required]").on("blur", function(){
-      var val = $.trim($(this).val() || "");
-      if(val.length && val.length < 100){
-        alert("답변은 최소 100자 이상 입력해주세요.");
-        $(this).focus();
-      }
-    });
-
-    // 카카오 버튼 (후속 OAuth 붙이기 전까지)
-    $(".bwf-kakao-btn").on("click", function(e){
-      e.preventDefault();
-      alert("카카오 로그인은 곧 지원됩니다! 현재는 이메일 회원가입을 이용해주세요.");
-    });
-
-    // 기타 경로 선택 시 텍스트 박스 토글
+    // 기타 경로 토글
     function toggleEtc(sel, input){
       var v = $(sel).val();
       if(v === 'etc'){ $(input).show().attr('required', true); }
@@ -24,13 +9,49 @@
     }
     $("#bwf-source").on('change', function(){ toggleEtc(this, "#bwf-source-etc"); });
     $("#bwf-source-fb").on('change', function(){ toggleEtc(this, "#bwf-source-etc-fb"); });
-    // 페이지 로드 시 초기 상태 반영
     toggleEtc("#bwf-source", "#bwf-source-etc");
     toggleEtc("#bwf-source-fb", "#bwf-source-etc-fb");
 
-    // 제출 UX
-    $(".bwf-form").on("submit", function(){
-      $(this).find("button[type=submit]").prop("disabled",true).text("처리 중...");
+    // 100자 카운터
+    function bindCounters(ctx){
+      $(ctx).find("textarea[data-minlength]").each(function(){
+        var $ta = $(this), min = parseInt($ta.data("minlength")||100,10),
+            $c = $ta.siblings(".bwf-counter");
+        function update(){ var n=($ta.val()||"").trim().length; $c.text(n+" / "+min+"자"); }
+        $ta.on("input blur", update); update();
+      });
+    }
+    bindCounters(document);
+
+    // 폼 제출: 첫 번째 에러로 스크롤
+    $(".bwf-form").on("submit", function(e){
+      var $form = $(this), ok = true, firstBad = null;
+
+      // required 검사 + minlength 검사
+      $form.find("[required]").each(function(){
+        var $el = $(this), val = ($el.val()||"").trim(), bad = false, msg="";
+        if(!val) { bad = true; msg="필수 입력입니다."; }
+        if(!bad && $el.is("textarea") && $el.data("minlength")){
+          var min = parseInt($el.data("minlength"),10);
+          if(val.length < min){ bad = true; msg="최소 "+min+"자 이상 입력해주세요."; }
+        }
+        var $err = $el.data("errEl");
+        if(!$err){ $err = $('<div class="bwf-error-text"></div>').insertAfter($el); $el.data("errEl",$err); }
+        if(bad){
+          ok = false; $el.addClass("bwf-error"); $err.text(msg).show();
+          if(!firstBad) firstBad = $el;
+        } else { $el.removeClass("bwf-error"); $err.text("").hide(); }
+      });
+
+      if(!ok){
+        e.preventDefault();
+        $('html,body').animate({scrollTop: firstBad.offset().top-120}, 300);
+        firstBad.focus();
+        return false;
+      }
+
+      // 중복 제출 방지
+      $form.find("button[type=submit]").prop("disabled", true).text("처리 중...");
     });
 
   });

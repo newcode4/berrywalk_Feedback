@@ -1,96 +1,36 @@
-/* Berrywalk Feedback 기본 스타일 */
-.bwf-form {
-  max-width: 600px;
-  margin: 20px auto;
-  padding: 24px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif;
-}
+/* 카드 */
+.bwf-form{max-width:840px;margin:24px auto;padding:24px;background:#fff;border-radius:16px;
+  box-shadow:0 6px 20px rgba(0,0,0,.06);font-family:"Pretendard","Apple SD Gothic Neo",sans-serif}
+.bwf-form h3{margin:6px 0 10px;font-size:20px}
+.bwf-hint{color:#6b7280;font-size:12px;margin:6px 0}
 
-.bwf-form h3 {
-  margin-top: 16px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
+/* 그리드 */
+.bwf-grid{display:grid;grid-template-columns:1fr;gap:14px}
+.bwf-col-full{grid-column:1/-1}
+@media(min-width:768px){
+  .bwf-grid{grid-template-columns:1fr 1fr}
+  .bwf-col-2{grid-column:span 1}
+  .bwf-col-3{grid-column:span 1}
 }
+label{display:block;font-size:14px;margin-bottom:6px}
+.bwf-required{color:#ef4444}
 
-.bwf-form input,
-.bwf-form textarea,
-.bwf-form select {
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 15px;
-  width: 100%;
-  transition: border-color 0.2s, box-shadow 0.2s;
+/* 입력 */
+.bwf-form input, .bwf-form select, .bwf-form textarea{
+  width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;
+  transition:border-color .2s, box-shadow .2s; background:#fff
 }
+.bwf-form textarea{min-height:110px;resize:vertical}
+.bwf-form input:focus, .bwf-form select:focus, .bwf-form textarea:focus{
+  border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.2);outline:0
+}
+.bwf-actions{text-align:right}
+.bwf-form button{padding:14px 20px;background:linear-gradient(90deg,#6366f1,#0ea5e9);
+  color:#fff;border:0;border-radius:10px;font-weight:700;cursor:pointer}
+.bwf-form hr{border:0;border-top:1px solid #eee;margin:8px 0}
 
-.bwf-form input:focus,
-.bwf-form textarea:focus,
-.bwf-form select:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
-  outline: none;
-}
-
-.bwf-form textarea {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.bwf-form button {
-  padding: 14px;
-  background: linear-gradient(90deg,#6366f1,#0ea5e9);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.15s, opacity 0.15s;
-}
-
-.bwf-form button:hover {
-  transform: translateY(-1px);
-  opacity: 0.9;
-}
-
-/* 카카오 로그인 스타일 */
-.bwf-kakao-btn {
-  background: #FEE500;
-  color: #000;
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 14px;
-  text-align: center;
-  cursor: pointer;
-  border: none;
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-  transition: opacity 0.2s;
-}
-.bwf-kakao-btn:hover {
-  opacity: 0.8;
-}
-
-/* 관리자 CRM 테이블 */
-.wp-admin .bwf-crm-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-.wp-admin .bwf-crm-table th,
-.wp-admin .bwf-crm-table td {
-  border: 1px solid #e5e7eb;
-  padding: 8px 12px;
-  text-align: left;
-}
-.wp-admin .bwf-crm-table th {
-  background: #f9fafb;
-  font-weight: 600;
-}
+/* 카운터/에러 */
+.bwf-counter{font-size:12px;color:#9ca3af;margin-top:4px;text-align:right}
+.bwf-error{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.2) !important}
+.bwf-error-text{color:#ef4444;font-size:12px;margin-top:4px}
+.bwf-bio{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 14px}

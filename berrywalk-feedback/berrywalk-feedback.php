@@ -2,7 +2,7 @@
 /*
 Plugin Name: Berrywalk Feedback
 Description: 대표 질문 등록 + 피드백 설문 + CRM
-Version: 0.1.9
+Version: 0.2.0
 Author: Berrywalk
 */
 
@@ -29,6 +29,7 @@ require_once BWF_DIR.'includes/signup.php';
 require_once BWF_DIR.'includes/representative-form.php';
 require_once BWF_DIR.'includes/feedback-form.php';
 require_once BWF_DIR.'includes/crm.php';
+require_once BWF_DIR.'includes/helper.php';
 
 // CSS/JS 등록
 add_action('wp_enqueue_scripts', function(){
