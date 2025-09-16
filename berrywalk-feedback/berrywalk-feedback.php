@@ -2,13 +2,13 @@
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.3.2
+ * Version: 0.3.3
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.3.2');
+define('BWF_VER', '0.3.3');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -61,4 +61,11 @@ register_activation_hook(__FILE__, function(){
     ]);
   }
   flush_rewrite_rules();
+});
+
+add_action('admin_head-profile.php', function(){
+  echo '<style>
+    h2:has(+ #wpmem_additional_fields), #wpmem_additional_fields { display:none !important; }
+    .wrap .notice-error:has(.wpmem) { display:none !important; }
+  </style>';
 });

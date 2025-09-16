@@ -8,7 +8,7 @@ require_once __DIR__ . '/helper.php';
 add_shortcode('bwf_signup_representative', function () {
   // 필요한 CSS/JS 로드
   wp_enqueue_style('bwf-forms');
-  wp_enqueue_script('bwf-js');
+
 
   if (is_user_logged_in()) {
     $u = wp_get_current_user();

@@ -1,7 +1,7 @@
 ﻿===== META =====
 Repo: https://github.com/newcode4/berrywalk_Feedback.git
-Branch: main  |  Tag: 0.3.1  |  Commit: 66e14bd
-Generated: 2025-09-16 15:47:04
+Branch: main  |  Tag: 0.3.2  |  Commit: 3318acf
+Generated: 2025-09-16 16:06:05
 
 ===== FILE: pack-code.ps1 (4063 bytes, 113 lines) =====
 `$ext
@@ -119,19 +119,19 @@ foreach ($f in $files) {
 "생성 완료: $(Join-Path $Root $Out)  (총 approx $totalBytes bytes)"
 
 `$nl
-===== FILE: berrywalk-feedback\berrywalk-feedback.php (1951 bytes, 50 lines) =====
+===== FILE: berrywalk-feedback\berrywalk-feedback.php (2370 bytes, 65 lines) =====
 `$ext
 <?php
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.3.1
+ * Version: 0.3.2
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.3.1');
+define('BWF_VER', '0.3.2');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -171,6 +171,21 @@ add_action('wp_enqueue_scripts', function () {
   wp_register_script('bwf-feedback',  BWF_URL.'public/js/feedback.js', ['jquery'], BWF_VER, true);
 });
 
+
+register_activation_hook(__FILE__, function(){
+  // 보기용 페이지 자동 생성
+  if (!get_page_by_path('my-question-view')){
+    $pid = wp_insert_post([
+      'post_title'   => '내 질문 보기',
+      'post_name'    => 'my-question-view',
+      'post_status'  => 'publish',
+      'post_type'    => 'page',
+      'post_content' => '[bw_view_question]'
+    ]);
+  }
+  flush_rewrite_rules();
+});
+
 `$nl
 ===== FILE: berrywalk-feedback\readme.txt (780 bytes, 23 lines) =====
 `$ext
@@ -198,7 +213,7 @@ License: GPLv2 or later
 - inc/update.php에서 GitHub URL/Branch/Token 설정.
 
 `$nl
-===== FILE: berrywalk-feedback\includes\admin-users.php (2326 bytes, 58 lines) =====
+===== FILE: berrywalk-feedback\includes\admin-users.php (2574 bytes, 67 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -256,6 +271,15 @@ add_action('admin_print_footer_scripts', function(){
   });
   </script>
   <?php
+});
+
+
+add_action('admin_head', function(){
+  echo '<style>
+  h2:has(+ table) + .notice-error:has(.error), 
+  h2:contains("WP-Members 추가 필드"), 
+  h2:contains("WP-Members 추가 필드") ~ * { display:none !important; }
+  </style>';
 });
 
 `$nl
@@ -523,7 +547,7 @@ function bwf_format_phone($digits){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\my-questions.php (2187 bytes, 49 lines) =====
+===== FILE: berrywalk-feedback\includes\my-questions.php (1726 bytes, 40 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -546,28 +570,19 @@ add_shortcode('bw_my_questions', function(){
   if (empty($items)) { echo '<p>아직 저장한 질문이 없습니다.</p></div>'; return ob_get_clean(); }
 
   echo '<table class="widefat striped"><thead><tr><th>저장시각</th><th>요약</th><th>전체</th></tr></thead><tbody>';
-  foreach($items as $it){
+    foreach($items as $it){
     $t = isset($it['_saved_at']) ? $it['_saved_at'] : '';
     $flat = wp_strip_all_tags(implode(' ', array_map('strval', $it)));
     $sum  = esc_html(mb_substr($flat,0,120)).(mb_strlen($flat)>120?'…':'');
     echo '<tr>';
     echo '<td>'.esc_html($t).'</td>';
     echo '<td>'.$sum.'</td>';
-    
-    $view_page = get_page_by_path('my-question-view'); // [bw_view_question] 붙인 페이지
+    $view_page = get_page_by_path('my-question-view');
     $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
-    $goto = add_query_arg(['qid'=>$it['_id']], $view_url);
+    $goto = add_query_arg(['qid'=>$it['_id'] ?? ''], $view_url);
     echo '<td><a class="button" href="'.esc_url($goto).'">보기</a></td>';
-    $map = [
-      'problem'=>'① 가장 큰 고민','value'=>'② 핵심 가치','ideal_customer'=>'③ 이상적 타겟',
-      'q1'=>'④-1 질문','q2'=>'④-2 질문','q3'=>'④-3 질문',
-      'one_question'=>'⑤ 1:1 한 가지','competitors'=>'⑥ 경쟁/차별'
-    ];
-    foreach($map as $k=>$tt){
-      if (!empty($it[$k])) echo '<li><b>'.$tt.':</b> '.esc_html($it[$k]).'</li>';
+    echo '</tr>';
     }
-    echo '</ul></details></td></tr>';
-  }
   echo '</tbody></table>';
   echo '<p style="margin-top:12px;"><a class="button button-primary" href="'.esc_url(home_url('/owner-questions/')).'">새 질문 작성</a></p>';
   echo '</div>';
@@ -575,7 +590,7 @@ add_shortcode('bw_my_questions', function(){
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\questions-admin.php (6177 bytes, 145 lines) =====
+===== FILE: berrywalk-feedback\includes\questions-admin.php (6858 bytes, 167 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -614,18 +629,39 @@ function bwf_questions_page(){
 
     foreach($items as $qs){
     if (!is_array($qs) || empty($qs)) continue;
-    $row = [
+    $rows = [];
+    $q = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+
+    $users = new WP_User_Query([
+    'meta_key' => 'bwf_questions',
+    'meta_compare' => 'EXISTS',
+    'fields' => ['ID','user_login','user_email','display_name'],
+    'number' => 2000,
+    ]);
+    foreach($users->get_results() as $u){
+    $now  = get_user_meta($u->ID,'bwf_questions',true);
+    $hist = get_user_meta($u->ID,'bwf_questions_history',true); if (!is_array($hist)) $hist=[];
+    $items = [];
+    if (is_array($now) && !empty($now)) $items[]=$now;
+    $items = array_merge($items,$hist);
+
+    foreach($items as $qs){
+        if (!is_array($qs) || empty($qs)) continue;
+        $flat = wp_strip_all_tags(implode(' ', array_map('strval',$qs)));
+        if ($q!=='' && stripos($flat,$q)===false) continue;
+
+        $rows[] = [
         'id'    => $u->ID,
         'name'  => $u->display_name ?: $u->user_login,
         'email' => $u->user_email,
-        't'     => isset($qs['_saved_at']) ? $qs['_saved_at'] : '',
-        'data'  => $qs,
+        't'     => $qs['_saved_at'] ?? '',
         'qid'   => $qs['_id'] ?? '',
-        'flat'  => wp_strip_all_tags(implode(' ', array_map('strval',$qs)))
-    ];
-    if ($q !== '' && stripos($row['flat'], $q)===false) continue;
-    $rows[] = $row;
+        'flat'  => $flat,
+        'data'  => $qs,
+        ];
     }
+    }
+
 
   // 정렬
   $orderby = $_GET['orderby'] ?? 't';
@@ -657,6 +693,7 @@ function bwf_questions_page(){
   echo '<th>'.$lnk('t','저장시각').'</th><th>'.$lnk('id','대표ID').'</th><th>'.$lnk('name','대표명').'</th>';
   $view = add_query_arg(['page'=>'bwf_question_view','uid'=>$r['id'],'qid'=>$r['qid']], admin_url('admin.php'));
     echo '<td><a class="button" href="'.esc_url($view).'">폼 레이아웃으로 보기</a></td>';
+
 
   echo '</tr></thead><tbody>';
 
@@ -723,7 +760,7 @@ function bwf_question_view_page(){
   echo '</div></div>';
 }
 `$nl
-===== FILE: berrywalk-feedback\includes\representative-form.php (6388 bytes, 120 lines) =====
+===== FILE: berrywalk-feedback\includes\representative-form.php (7685 bytes, 145 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -773,8 +810,6 @@ add_shortcode('bw_owner_form', function(){
   ob_start(); ?>
   <div class="bwf-form">
     <?php echo $msg; ?>
-    <div class="bwf-topcount">작성 <span id="bwf-answered">0</span>/<span id="bwf-total">0</span> 문항</div>
-    <div id="bwf-progress"><div class="bwf-bar"></div></div>
 
     <h3>대표님 핵심 질문지</h3>
     <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 100자</strong>입니다.</p>
@@ -789,6 +824,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “신규 고객 유입이 너무 어렵습니다. 광고 효율이 안 나옵니다.”, “재구매율이 낮아 성장이 정체돼요.”</div>
         </div>
         <textarea name="problem" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ② 어떤 문제를 해결하나요 -->
         <label>2. 우리 서비스가 고객의 ‘어떤 문제’를 해결하나요? <span class="bwf-required">*</span></label>
@@ -797,6 +833,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “바쁜 직장인에게 집밥처럼 건강한 한 끼 배달”, “복잡한 서류 작업을 5분 만에 끝내줌”.</div>
         </div>
         <textarea name="value" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ③ 누가 이용해야 하나요/왜 선택하나요 -->
         <label>3. 이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요? <span class="bwf-required">*</span></label>
@@ -805,6 +842,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “운동은 하고 싶지만 시간/비용이 부족한 20대 대학생 — 15분 홈트+저렴한 구독료”.</div>
         </div>
         <textarea name="ideal_customer" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ④-1 ~ ④-3 맞춤 질문 -->
         <label>4-1. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
@@ -825,6 +863,7 @@ add_shortcode('bw_owner_form', function(){
         <label>5. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
         <div class="bwf-help"><div>예시: “처음 사용 후 무엇이 가장 달라졌나요?”</div></div>
         <input type="text" name="one_question" placeholder="예: 우리의 어떤 점이 당신 문제를 가장 잘 해결했나요?">
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ⑥ 경쟁/차별 -->
         <label>6. 경쟁사와의 차별점은? <span class="bwf-required">*</span></label>
@@ -833,11 +872,34 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “A는 싸지만 품질이 낮고, B는 비싸지만 퀄리티가 높다 → 우리는 적정 가격+높은 만족”.</div>
         </div>
         <textarea name="competitors" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
 
       <div class="bwf-col-full bwf-actions">
         <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
       </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function(){
+        const wrap = document.currentScript.closest('.bwf-form');
+        wrap.querySelectorAll('textarea[data-minlength], input[data-minlength]').forEach(function(el){
+            const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+            const box = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper')
+            ? el.nextElementSibling : null;
+            const run = ()=> {
+            const len = (el.value||'').trim().length;
+            if (box){
+                const c = box.querySelector('.bwf-counter');
+                if(c) c.textContent = len;
+                box.classList.toggle('ok', len>=min);
+                box.title = len>=min ? '충분합니다' : (min-len)+'자 더 입력';
+            }
+            el.setCustomValidity(len>=min? '' : (min+'자 이상 입력해주세요'));
+            };
+            el.addEventListener('input', run); run();
+        });
+        });
+        </script>
+
     </form>
 
    
@@ -1328,59 +1390,50 @@ $_POST['bw_phone'] = preg_replace('/^(\d{3})(\d{4})(\d{4})$/','$1-$2-$3',$digits
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\view-question.php (2035 bytes, 53 lines) =====
+===== FILE: berrywalk-feedback\includes\view-question.php (1778 bytes, 44 lines) =====
 `$ext
-<?php
-if (!defined('ABSPATH')) exit;
-
+<?php if (!defined('ABSPATH')) exit;
 add_shortcode('bw_view_question', function(){
-  $qid = sanitize_text_field($_GET['qid'] ?? '');
+  if (!is_user_logged_in()) return '<p>로그인 후 이용해주세요.</p>';
   $uid = get_current_user_id();
-  if (!$qid) return '<p>잘못된 요청입니다.</p>';
-  if (!$uid) return '<p>로그인 후 이용해주세요.</p>';
+  $qid = sanitize_text_field($_GET['qid'] ?? '');
 
-  // 내 최신본 + 히스토리에서 qid 찾기
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if (!is_array($hist)) $hist=[];
-  $all  = [];
-  if (is_array($now) && !empty($now)) $all[]=$now;
-  $all = array_merge($all, $hist);
+  $items = [];
+  if (is_array($now) && !empty($now)) $items[]=$now;
+  $items = array_merge($items, $hist);
 
+  // qid로 찾고, 없으면 최신본
   $found = null;
-  foreach($all as $it){ if (!empty($it['_id']) && $it['_id']===$qid){ $found=$it; break; } }
-  if (!$found) return '<p>해당 항목을 찾을 수 없습니다.</p>';
+  if ($qid){
+    foreach($items as $it){ if (!empty($it['_id']) && $it['_id']===$qid){ $found=$it; break; } }
+  }
+  if (!$found && !empty($items)) $found = $items[0];
+  if (!$found) return '<p>표시할 항목이 없습니다.</p>';
 
   wp_enqueue_style('bwf-forms');
-
   ob_start(); ?>
   <div class="bwf-form">
-    <div class="bwf-topwrap"><div class="bwf-top-title">대표 질문 상세(읽기 전용)</div></div>
-
+    <h3>대표 질문 상세(읽기 전용)</h3>
     <?php
-      $F = [
-        'problem'=>'1. 현재 비즈니스에서 가장 큰 고민은 무엇인가요?',
-        'value'=>'2. 우리 서비스가 고객의 ‘어떤 문제’를 해결하나요?',
-        'ideal_customer'=>'3. 이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요?',
-        'q1'=>'4-1. 맞춤 질문',
-        'q2'=>'4-2. 맞춤 질문',
-        'q3'=>'4-3. 맞춤 질문',
-        'one_question'=>'5. 타겟 고객 1:1로 단 한 가지를 묻는다면?',
-        'competitors'=>'6. 경쟁사와의 차별점은?'
-      ];
-      foreach($F as $k=>$lab){
-        echo '<div class="bwf-col-full" style="margin:10px 0 14px">';
-        echo '<label>'.$lab.'</label>';
-        if ($k==='one_question'){
-          echo '<input type="text" value="'.esc_attr($found[$k]??'').'" readonly>';
-        } else {
-          echo '<textarea readonly>'.esc_textarea($found[$k]??'').'</textarea>';
-        }
-        echo '</div>';
+    $F = [
+      'problem'=>'1. 현재 비즈니스에서 가장 큰 고민은 무엇인가요?',
+      'value'=>'2. 우리 서비스가 고객의 ‘어떤 문제’를 해결하나요?',
+      'ideal_customer'=>'3. 이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요?',
+      'q1'=>'4-1. 맞춤 질문', 'q2'=>'4-2. 맞춤 질문', 'q3'=>'4-3. 맞춤 질문',
+      'one_question'=>'5. 1:1 한 가지', 'competitors'=>'6. 경쟁/차별'
+    ];
+    foreach($F as $k=>$lab){
+      echo '<label>'.$lab.'</label>';
+      if($k==='one_question'){
+        echo '<input type="text" value="'.esc_attr($found[$k]??'').'" readonly>';
+      }else{
+        echo '<textarea readonly>'.esc_textarea($found[$k]??'').'</textarea>';
       }
-    ?>
+    } ?>
   </div>
-  <?php
-  return ob_get_clean();
+  <?php return ob_get_clean();
 });
 
 `$nl
@@ -9190,7 +9243,7 @@ if ( !trait_exists(VcsCheckerMethods::class, false) ) :
 
 endif;
 `$nl
-===== FILE: berrywalk-feedback\public\css\style.css (5050 bytes, 97 lines) =====
+===== FILE: berrywalk-feedback\public\css\style.css (6238 bytes, 119 lines) =====
 `$ext
 /* 레이아웃 */
 .bwf-form{max-width:840px;margin:24px auto;padding:24px;background:#fff;border-radius:16px;
@@ -9288,6 +9341,28 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
 .bwf-form .bwf-actions button[type="submit"],
 .bwf-form button.bwf-btn[type="submit"]{ margin:0 auto; display:inline-flex; justify-content:center; }
+
+/* 회원가입 폼에서 진행바/카운터 숨김 */
+.bwf-form.bwf-grid .bwf-topcount,
+.bwf-form.bwf-grid #bwf-progress { display:none !important; }
+
+/* 대표 질문지: 제목/설명/예시 타이포 */
+.bwf-form h3 { font-size:28px; font-weight:800; margin:8px 0 18px; }
+.bwf-form label { display:block; font-size:18px; font-weight:700; margin:18px 0 8px; }
+.bwf-form .bwf-help { font-size:13.5px; color:#64748b; margin:6px 0 10px; }
+.bwf-form textarea, .bwf-form input[type="text"] { width:100%; font-size:16px; line-height:1.6; }
+
+/* 글자수 헬퍼 */
+.bwf-helper { display:flex; justify-content:flex-end; gap:8px; margin:6px 2px 0; font-size:12.5px; color:#64748b; }
+.bwf-helper .ok { color:#059669; font-weight:600; }
+
+/* 대표 질문지의 진행바 요소가 남아 있더라도 가림 (중복/스티키 방지) */
+#bwf-progress, .bwf-topwrap, .bwf-topcount { display:none !important; }
+
+/* 저장 버튼 중앙 정렬 */
+.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
+.bwf-form .bwf-actions .bwf-btn,
+.bwf-form .bwf-actions button[type="submit"]{ min-width:260px; height:56px; font-size:18px; border-radius:14px; }
 
 `$nl
 ===== FILE: berrywalk-feedback\public\js\feedback.js (10996 bytes, 290 lines) =====
