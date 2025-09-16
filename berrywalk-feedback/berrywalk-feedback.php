@@ -2,7 +2,7 @@
 /*
 Plugin Name: Berrywalk Feedback
 Description: 대표 질문 등록 + 피드백 설문 + CRM
-Version: 0.2.0
+Version: 0.2.1
 Author: Berrywalk
 */
 
@@ -11,16 +11,18 @@ if (!defined('ABSPATH')) exit;
 // 자동 업데이트 (GitHub 연동)
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
 $updateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/newcode4/berrywalk_Feedback', // 깃헙 주소
-    __FILE__,
-    'berrywalk-feedback'
+  'https://github.com/newcode4/berrywalk_Feedback',
+  __FILE__,
+  'berrywalk-feedback'
 );
-$updateChecker->setBranch('main');
+$updateChecker->setBranch('main');     // 기본 브랜치가 main이 맞는지 확인. master면 'master'로.
 $updateChecker->getVcsApi()->enableReleaseAssets();
 
+
 // 상수
-define('BWF_VER','0.1.8');
+define('BWF_VER','0.2.1');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 

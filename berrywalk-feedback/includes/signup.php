@@ -168,6 +168,8 @@ add_action('init', function(){
 
   wp_set_current_user($user_id);
   wp_set_auth_cookie($user_id);
+
   $redirect = ($role === 'representative') ? home_url('/owner-questions/') : home_url('/');
-  wp_redirect($redirect); exit;
+  wp_redirect($redirect); 
+  exit;
 });

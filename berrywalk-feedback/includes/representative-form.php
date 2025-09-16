@@ -25,6 +25,9 @@ add_shortcode('bw_owner_form', function(){
   $feedback_url = add_query_arg(['rep'=>$uid], get_permalink(get_page_by_path('customer-feedback')) ?: home_url('/customer-feedback/'));
 
   ob_start(); ?>
+  echo '<div class="bwf-topcount"><span id="bwf-answered">0</span>/<span id="bwf-total">0</span></div>';
+    echo '<div id="bwf-progress"><div class="bwf-bar"></div></div>';
+
   <div class="bwf-form">
     <h3>대표님 핵심 질문지</h3>
     <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화하는 단계입니다.</p>
