@@ -22,6 +22,8 @@ try {
     'berrywalk-feedback'
   );
   $updateChecker->setBranch('main');
+
+  $updateChecker->getVcsApi()->enableReleaseAssets();
 } catch (Throwable $e) {}
 
 /** includes */
