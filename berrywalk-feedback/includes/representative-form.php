@@ -13,27 +13,28 @@ add_shortcode('bw_owner_form', function(){
   $msg = '';
   if (isset($_POST['bwf_save_questions']) && wp_verify_nonce($_POST['bwf_nonce'],'bwf_owner_form')) {
     $data = [
-      // 본질 3문항
-      'problem'        => sanitize_textarea_field($_POST['problem'] ?? ''),
-      'value'          => sanitize_textarea_field($_POST['value'] ?? ''),
-      'ideal_customer' => sanitize_textarea_field($_POST['ideal_customer'] ?? ''),
-      // 맞춤 3문항
-      'q1' => sanitize_textarea_field($_POST['q1'] ?? ''),
+        'problem'        => sanitize_textarea_field($_POST['problem'] ?? ''),
+        'value'          => sanitize_textarea_field($_POST['value'] ?? ''),
+        'ideal_customer' => sanitize_textarea_field($_POST['ideal_customer'] ?? ''),
+        'q1' => sanitize_textarea_field($_POST['q1'] ?? ''),
         'q2' => sanitize_textarea_field($_POST['q2'] ?? ''),
         'q3' => sanitize_textarea_field($_POST['q3'] ?? ''),
-      // 타겟 1:1 한 가지
-      'one_question'   => sanitize_text_field($_POST['one_question'] ?? ''),
-      // 경쟁사
-      'competitors'    => sanitize_textarea_field($_POST['competitors'] ?? ''),
+        'one_question'   => sanitize_text_field($_POST['one_question'] ?? ''),
+        'competitors'    => sanitize_textarea_field($_POST['competitors'] ?? ''),
+        '_saved_at'      => current_time('mysql'),
+        '_id'            => uniqid('q_', true),
     ];
+
+    // 최신본 저장
     update_user_meta($uid,'bwf_questions',$data);
-    $saved = $data;
-    // $msg = '<p style="color:#10b981">저장 완료. 아래 링크로 피드백을 받을 수 있습니다.</p>';
-    /* 기존: 피드백 링크 생성 섹션 전체 주석 처리 */
+    update_user_meta($uid,'bwf_questions_saved_at',$data['_saved_at']);
 
-echo '<div class="bwf-success">저장 완료. 대표 질문이 저장되었습니다.<br>관리자 &gt; Berrywalk Feedback &gt; <b>대표 질문지</b> 메뉴에서 언제든 확인/검색할 수 있습니다.</div>';
-
-  }
+    // 히스토리 누적
+    $hist = get_user_meta($uid,'bwf_questions_history', true);
+    if (!is_array($hist)) $hist = [];
+    $hist[] = $data;
+    update_user_meta($uid,'bwf_questions_history',$hist);
+}
 
   // 피드백 링크
   $fb_page = get_page_by_path(BWF_FEEDBACK_PAGE_SLUG);
@@ -105,11 +106,7 @@ echo '<div class="bwf-success">저장 완료. 대표 질문이 저장되었습�
       </div>
     </form>
 
-    <div style="margin-top:12px;">
-      <strong>피드백 링크</strong>
-      <input type="text" value="<?php echo esc_attr($feedback_url); ?>" readonly onclick="this.select();">
-      <p class="bwf-hint">이 링크를 고객에게 공유하세요.</p>
-    </div>
+   
   </div>
   <?php return ob_get_clean();
 });

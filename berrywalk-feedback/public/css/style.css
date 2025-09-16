@@ -76,3 +76,16 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-count { margin-top:6px; display:flex; gap:8px; font-size:12px; color:#64748b; }
 .bwf-count .now{min-width:64px}
 .bwf-count .need{color:#334155}
+
+/* 회원가입 폼 전용(대표: shortcode가 .bwf-form.bwf-grid 구조) */
+.bwf-form.bwf-grid{ font-size:17.5px; line-height:1.75; }
+.bwf-form.bwf-grid label{ margin:14px 0 8px; font-weight:600; }
+.bwf-form.bwf-grid input, .bwf-form.bwf-grid select{ padding:12px 14px; }
+.bwf-form.bwf-grid .bwf-actions{ margin:28px 0 8px; }
+.bwf-form.bwf-grid .bwf-actions button{
+  width:100%; max-width:440px; height:56px; font-size:18px; border-radius:14px;
+}
+
+:root{ --bwf-sticky-top:72px; }     /* 헤더 높이에 맞춰 조정 가능 */
+.bwf-topwrap{ position:sticky; top:var(--bwf-sticky-top); z-index:40; background:#fff;
+              padding:14px 14px 16px; border-bottom:1px solid #eee; margin:12px 0 18px; }

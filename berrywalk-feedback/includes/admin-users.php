@@ -44,3 +44,14 @@ function bwf_save_profile($user_id){
 }
 add_action('personal_options_update','bwf_save_profile');
 add_action('edit_user_profile_update','bwf_save_profile');
+
+// WP-Members 추가 필드 섹션 임시 숨김(UX 보호)
+add_action('admin_print_footer_scripts', function(){
+  ?>
+  <script>
+  jQuery(function($){
+    $("h2:contains('WP-Members 추가 필드')").nextUntil("h2").hide().end().hide();
+  });
+  </script>
+  <?php
+});

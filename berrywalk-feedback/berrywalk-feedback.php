@@ -2,13 +2,13 @@
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.2.9
+ * Version: 0.3.0
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.2.9');
+define('BWF_VER', '0.3.0');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -34,6 +34,8 @@ require_once BWF_DIR.'includes/feedback-form.php';       // 고객 피드백 (�
 require_once BWF_DIR.'includes/crm.php';                 // CRM 테이블
 require_once BWF_DIR.'includes/admin-users.php';         // ✅ 사용자 화면(컬럼/프로필)
 require_once BWF_DIR.'includes/questions-admin.php';
+require_once BWF_DIR.'includes/my-questions.php';
+
 
 
 /** Assets */
