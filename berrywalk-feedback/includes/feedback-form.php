@@ -106,5 +106,6 @@ add_shortcode('bw_feedback_form', function () {
     </form>
   </div>
   <?php
+  
   return ob_get_clean();
 });

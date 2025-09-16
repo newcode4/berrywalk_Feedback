@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/helper.php';
 
 /** 대표 회원가입 */
 add_shortcode('bwf_signup_representative', function () {

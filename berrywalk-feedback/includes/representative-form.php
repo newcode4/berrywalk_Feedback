@@ -18,9 +18,9 @@ add_shortcode('bw_owner_form', function(){
       'value'          => sanitize_textarea_field($_POST['value'] ?? ''),
       'ideal_customer' => sanitize_textarea_field($_POST['ideal_customer'] ?? ''),
       // 맞춤 3문항
-      'q1' => sanitize_text_field($_POST['q1'] ?? ''),
-      'q2' => sanitize_text_field($_POST['q2'] ?? ''),
-      'q3' => sanitize_text_field($_POST['q3'] ?? ''),
+      'q1' => sanitize_textarea_field($_POST['q1'] ?? ''),
+        'q2' => sanitize_textarea_field($_POST['q2'] ?? ''),
+        'q3' => sanitize_textarea_field($_POST['q3'] ?? ''),
       // 타겟 1:1 한 가지
       'one_question'   => sanitize_text_field($_POST['one_question'] ?? ''),
       // 경쟁사
@@ -34,6 +34,9 @@ add_shortcode('bw_owner_form', function(){
   // 피드백 링크
   $fb_page = get_page_by_path(BWF_FEEDBACK_PAGE_SLUG);
   $feedback_url = add_query_arg(['rep'=>$uid], $fb_page ? get_permalink($fb_page) : home_url('/'.BWF_FEEDBACK_PAGE_SLUG.'/'));
+
+  wp_enqueue_style('bwf-forms');
+    wp_enqueue_script('bwf-js');
 
   ob_start(); ?>
   <div class="bwf-form">
@@ -65,11 +68,20 @@ add_shortcode('bw_owner_form', function(){
 
       <!-- 고객에게 물어보고 싶은 3가지 (먼저) -->
       <div class="bwf-col-full"><strong>고객에게 물어보고 싶은 3가지</strong></div>
-      <div class="bwf-grid-2 bwf-col-full">
-        <div><input type="text" name="q1" value="<?php echo esc_attr($S('q1')); ?>" placeholder="질문 1" required></div>
-        <div><input type="text" name="q2" value="<?php echo esc_attr($S('q2')); ?>" placeholder="질문 2" required></div>
-      </div>
-      <div class="bwf-col-full"><input type="text" name="q3" value="<?php echo esc_attr($S('q3')); ?>" placeholder="질문 3" required></div>
+        <div class="bwf-grid-2 bwf-col-full">
+        <div>
+            <label>질문 1</label>
+            <textarea name="q1" placeholder="예: 우리 서비스를 알게 된 경로는 무엇인가요?" required><?php echo esc_textarea($S('q1')); ?></textarea>
+        </div>
+        <div>
+            <label>질문 2</label>
+            <textarea name="q2" placeholder="예: 우리 서비스를 선택한 가장 큰 이유는 무엇이었나요?" required><?php echo esc_textarea($S('q2')); ?></textarea>
+        </div>
+        </div>
+        <div class="bwf-col-full">
+        <label>질문 3</label>
+        <textarea name="q3" placeholder="예: 구매를 망설이게 하는 가장 큰 요인은 무엇인가요?" required><?php echo esc_textarea($S('q3')); ?></textarea>
+        </div>
 
       <!-- 타겟 1:1 한 가지 -->
       <div class="bwf-col-full"><hr></div>
