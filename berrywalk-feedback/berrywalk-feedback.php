@@ -2,7 +2,7 @@
 /*
 Plugin Name: Berrywalk Feedback
 Description: 대표 질문 등록 + 피드백 설문 + CRM
-Version: 0.1.3
+Version: 0.1.6
 Author: Berrywalk
 */
 
@@ -25,7 +25,6 @@ define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
 // 파일 로드
-require_once BWF_DIR.'includes/helpers.php';
 require_once BWF_DIR.'includes/signup.php';
 require_once BWF_DIR.'includes/representative-form.php';
 require_once BWF_DIR.'includes/feedback-form.php';
