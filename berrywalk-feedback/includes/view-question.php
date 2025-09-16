@@ -3,10 +3,18 @@ if (!defined('ABSPATH')) exit;
 
 add_shortcode('bw_view_question', function($atts){
   if(!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
-  $uid = get_current_user_id();
+
+  // ★ 관리자면 uid 파라미터 허용
+  $current = get_current_user_id();
+  $can_admin = current_user_can('list_users') || current_user_can('manage_options');
+  $uid = $can_admin ? intval($_GET['uid'] ?? $current) : $current;
+
   $qid = sanitize_text_field($_GET['qid'] ?? '');
 
-  // 현재본 + 히스토리에서 해당 qid 찾기
+  // 스타일 적용 (리스트/레이아웃 깔끔하게)
+  wp_enqueue_style('bwf-forms');
+
+  // 현재본 + 히스토리에서 qid 검색 (대상: $uid)
   $cands = [];
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];

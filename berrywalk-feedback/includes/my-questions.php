@@ -1,6 +1,9 @@
 <?php
 add_shortcode('bw_my_questions', function(){
   if(!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
+
+    wp_enqueue_style('bwf-forms');
+
   $uid = get_current_user_id();
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];

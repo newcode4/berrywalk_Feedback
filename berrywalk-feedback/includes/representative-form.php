@@ -47,10 +47,18 @@ add_shortcode('bw_owner_form', function(){
   <div class="bwf-form">
     <?php echo $msg; ?>
 
-    <h3>대표님 핵심 질문지</h3>
-    <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 100자</strong>입니다.</p>
+       
 
-    <form method="post" class="bwf-grid">
+    <h3>대표님 핵심 질문지</h3>
+    <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 50자</strong>입니다.</p>
+
+    <form method="post" class="bwf-grid bwf-onecol">
+
+         <div class="bwf-sticky bwf-col-full">
+        <div class="bwf-topcount">작성 <span class="done">0</span>/<span class="total">0</span>문항</div>
+        <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
+        </div>
+
       <?php wp_nonce_field('bwf_owner_form','bwf_nonce'); ?>
 
       <!-- 본질 질문 -->
@@ -80,20 +88,23 @@ add_shortcode('bw_owner_form', function(){
         <textarea name="ideal_customer" required data-minlength="50"></textarea>
         <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
-        <!-- ④-1 ~ ④-3 맞춤 질문 -->
-        <label>4-1. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
-        <div class="bwf-help">
-        <div>예시: “우리 서비스의 어떤 점이 가장 문제 해결에 도움이 됐나요?”</div>
-        </div>
-        <textarea name="q1" data-group="ask3" required data-minlength="50"></textarea>
+        <!-- ④ 고객에게 물어보고 싶은 3가지 (세 칸이 모두 채워지면 1문항으로 계산) -->
+        <h3 class="bwf-col-full">4. 고객에게 물어보고 싶은 3가지</h3>
 
-        <label>4-2. 두 번째 맞춤 질문 <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “우리 서비스를 알게 된 경로와 결심 포인트는 무엇이었나요?”</div></div>
-        <textarea name="q2" data-group="ask3" required data-minlength="50"></textarea>
+        <label>질문 1 <span class="bwf-required">*</span></label>
+        <div class="bwf-help"><div>예시: “우리 서비스를 알게 된 경로는 무엇이었나요?”</div></div>
+        <textarea name="q1" data-group="ask3" required data-minlength="50" rows="4"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
-        <label>4-3. 세 번째 맞춤 질문 <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “사용 중 가장 불편했던 점은 무엇이었나요?”</div></div>
-        <textarea name="q3" data-group="ask3" required data-minlength="50"></textarea>
+        <label>질문 2 <span class="bwf-required">*</span></label>
+        <div class="bwf-help"><div>예시: “결심 포인트는 무엇이었나요?”</div></div>
+        <textarea name="q2" data-group="ask3" required data-minlength="50" rows="4"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
+
+        <label>질문 3 <span class="bwf-required">*</span></label>
+        <div class="bwf-help"><div>예시: “사용 중 가장 불편했던 점은?”</div></div>
+        <textarea name="q3" data-group="ask3" required data-minlength="50" rows="4"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ⑤ 1:1 한 가지 -->
         <label>5. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
@@ -117,24 +128,69 @@ add_shortcode('bw_owner_form', function(){
       <script>
         document.addEventListener('DOMContentLoaded', function(){
         const wrap = document.currentScript.closest('.bwf-form');
-        wrap.querySelectorAll('textarea[data-minlength], input[data-minlength]').forEach(function(el){
+        const fields = Array.from(wrap.querySelectorAll('textarea[data-minlength], input[data-minlength]'));
+        const progress = wrap.querySelector('#bwf-progress .bar');
+        const label    = wrap.querySelector('#bwf-progress .label');
+        const doneEl   = wrap.querySelector('.bwf-topcount .done');
+        const totEl    = wrap.querySelector('.bwf-topcount .total');
+
+        // 문항 정의: 일반 + ask3(3칸=1문항)
+        const groups = {};
+        const items = fields.map(el=>{
             const min = parseInt(el.getAttribute('data-minlength')||'0',10);
-            const box = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper')
-            ? el.nextElementSibling : null;
-            const run = ()=> {
-            const len = (el.value||'').trim().length;
-            if (box){
-                const c = box.querySelector('.bwf-counter');
-                if(c) c.textContent = len;
-                box.classList.toggle('ok', len>=min);
-                box.title = len>=min ? '충분합니다' : (min-len)+'자 더 입력';
-            }
-            el.setCustomValidity(len>=min? '' : (min+'자 이상 입력해주세요'));
-            };
-            el.addEventListener('input', run); run();
+            const g   = el.getAttribute('data-group')||null;
+            if (g) { groups[g] = groups[g]||[]; groups[g].push({el,min}); }
+            return {el, min, group:g};
         });
+
+        // 총 문항 수 계산
+        const total = Object.keys(groups).length + items.filter(x=>!x.group).length;
+        if (totEl) totEl.textContent = total;
+
+        function countOK(){
+            // 그룹 문항(ask3)은 세 칸 모두 기준 충족 시 1로 카운트
+            let ok = 0;
+
+            // 비그룹
+            items.filter(x=>!x.group).forEach(x=>{
+            const len = (x.el.value||'').trim().length;
+            const box = x.el.nextElementSibling?.classList.contains('bwf-helper') ? x.el.nextElementSibling : null;
+            if (box) {
+                const c = box.querySelector('.bwf-counter'); if (c) c.textContent = len;
+                box.classList.toggle('ok', len>=x.min);
+            }
+            x.el.setCustomValidity(len>=x.min ? '' : (x.min+'자 이상 입력해주세요'));
+            if (len>=x.min) ok++;
+            });
+
+            // 그룹(ask3)
+            Object.values(groups).forEach(arr=>{
+            const allOK = arr.every(x => ((x.el.value||'').trim().length >= x.min));
+            if (allOK) ok++;
+            // 각 칸의 카운터/valid 처리
+            arr.forEach(x=>{
+                const len = (x.el.value||'').trim().length;
+                const box = x.el.nextElementSibling?.classList.contains('bwf-helper') ? x.el.nextElementSibling : null;
+                if (box) {
+                const c = box.querySelector('.bwf-counter'); if (c) c.textContent = len;
+                box.classList.toggle('ok', len>=x.min);
+                }
+                x.el.setCustomValidity(len>=x.min ? '' : (x.min+'자 이상 입력해주세요'));
+            });
+            });
+
+            // 진행바/카운트
+            const pct = Math.round((ok/total)*100);
+            if (progress) progress.style.width = pct+'%';
+            if (label)    label.textContent   = pct+'%';
+            if (doneEl)   doneEl.textContent  = ok;
+        }
+
+        fields.forEach(el=>el.addEventListener('input', countOK));
+        countOK();
         });
         </script>
+
 
     </form>
 

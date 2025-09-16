@@ -61,7 +61,10 @@ function bwf_questions_page(){
   foreach($rows as $r){
     $qs = $r['data'];
     $summary = esc_html(mb_substr($r['flat'],0,140)).(mb_strlen($r['flat'])>140?'…':'');
-    $goto = esc_url(add_query_arg(['qid'=>($qs['_id'] ?? '')], $view_url));
+    $goto = esc_url(add_query_arg([
+    'qid' => ($qs['_id'] ?? ''),
+    'uid' => $r['id'],       // ← 대표 유저 ID 추가
+    ], $view_url));
 
     echo '<tr>';
     echo '<td>'.esc_html($r['t']).'</td>';

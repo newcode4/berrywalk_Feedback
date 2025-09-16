@@ -105,9 +105,6 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-form .bwf-help { font-size:13.5px; color:#64748b; margin:6px 0 10px; }
 .bwf-form textarea, .bwf-form input[type="text"] { width:100%; font-size:16px; line-height:1.6; }
 
-/* 글자수 헬퍼 */
-.bwf-helper { display:flex; justify-content:flex-end; gap:8px; margin:6px 2px 0; font-size:12.5px; color:#64748b; }
-.bwf-helper .ok { color:#059669; font-weight:600; }
 
 /* 대표 질문지의 진행바 요소가 남아 있더라도 가림 (중복/스티키 방지) */
 #bwf-progress, .bwf-topwrap, .bwf-topcount { display:none !important; }
@@ -130,3 +127,31 @@ label{display:block;font-size:14px;margin-bottom:6px}
 .bwf-list li { display:flex; gap:14px; align-items:center; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px; }
 .bwf-list .bwf-time { width:150px; color:#6b7280; }
 .bwf-list .bwf-sum { flex:1; }
+
+/* 한 컬럼 레이아웃 */
+.bwf-grid.bwf-onecol { display:grid; grid-template-columns:1fr; gap:16px; }
+.bwf-form textarea, .bwf-form input[type="text"], .bwf-form input[type="url"],
+.bwf-form input[type="email"], .bwf-form input[type="number"], .bwf-form select {
+  width:100%; box-sizing:border-box;
+}
+
+/* 진행바 */
+.bwf-sticky { position:sticky; top:0; background:#fff; z-index:5; padding:12px 0 8px; }
+#bwf-progress { position:relative; height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; }
+#bwf-progress .bar { height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
+#bwf-progress .label { position:absolute; top:-22px; right:0; font-size:12px; color:#475569; }
+.bwf-topcount { font-size:12px; color:#475569; margin-bottom:6px; }
+
+/* 글자수 헬퍼 */
+.bwf-helper { display:flex; justify-content:flex-end; gap:8px; font-size:12px; color:#64748b; }
+.bwf-helper.ok { color:#16a34a; }
+
+/* 마이페이지 리스트 */
+.bwf-list { list-style:none; padding:0; margin:12px 0; display:flex; flex-direction:column; gap:10px; }
+.bwf-list li { display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.bwf-list .bwf-time { color:#64748b; min-width: 170px; }
+.bwf-list .bwf-sum { flex:1; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bwf-list a.button { white-space:nowrap; }
+
+/* 버튼 영역 간격 */
+.bwf-actions { margin-top:18px; }
