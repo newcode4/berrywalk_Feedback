@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-/** 업종/유입경로/소셜 필드 정의 */
+/** 옵션 셋 */
 function bwf_industry_options(){
   return [
     'it_saas'=>'IT / SaaS','commerce'=>'커머스/쇼핑몰','food'=>'외식/식품','beauty'=>'뷰티/헬스',
@@ -24,4 +24,19 @@ function bwf_social_fields(){
 
 /** 안전 출력/입력 */
 function bwf_esc($v){ return esc_html(trim((string)$v)); }
-function bwf_post($k,$d=''){ return isset($_POST[$k]) ? sanitize_text_field($_POST[$k]) : $d; }
+function bwf_post($k,$default=''){ return isset($_POST[$k]) ? wp_unslash($_POST[$k]) : $default; }
+function bwf_text($k,$default=''){ return sanitize_text_field(bwf_post($k,$default)); }
+function bwf_textarea($k,$default=''){ return sanitize_textarea_field(bwf_post($k,$default)); }
+
+/** 휴대폰 하이픈 자동 포맷 */
+function bwf_format_phone($digits){
+  $n = preg_replace('/\D+/','',$digits);
+  if (strpos($n,'02') === 0) { // 서울번호 예외
+    if (strlen($n) >= 10) return preg_replace('/^(\d{2})(\d{4})(\d{4}).*/','$1-$2-$3',$n);
+    if (strlen($n) >= 9)  return preg_replace('/^(\d{2})(\d{3})(\d{4}).*/','$1-$2-$3',$n);
+  }
+  // 010 등
+  if (strlen($n) >= 11) return preg_replace('/^(\d{3})(\d{4})(\d{4}).*/','$1-$2-$3',$n);
+  if (strlen($n) >= 10) return preg_replace('/^(\d{3})(\d{3})(\d{4}).*/','$1-$2-$3',$n);
+  return $n;
+}
