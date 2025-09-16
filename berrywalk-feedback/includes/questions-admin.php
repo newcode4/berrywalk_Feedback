@@ -3,7 +3,8 @@ if (!defined('ABSPATH')) exit;
 
 add_action('admin_menu', function(){
   add_menu_page('Berrywalk Feedback','Berrywalk Feedback','manage_options','bwf_crm','bwf_crm_landing','dashicons-feedback',26);
-  add_submenu_page('bwf_crm','대표 질문지','대표 질문지','manage_options','bwf_questions','bwf_questions_page');
+ add_submenu_page('bwf_crm','대표 질문 보기','대표 질문 보기','manage_options','bwf_question_view','bwf_question_view_page');
+
   // 기존 CRM 페이지(피드백 수집은 나중에): 필요 시 유지
   // add_submenu_page('bwf_crm','피드백 CRM','피드백 CRM','manage_options','bwf_crm_list','bwf_crm_page');
 });
@@ -23,26 +24,29 @@ function bwf_questions_page(){
     'number' => 2000, // 충분히 크게
     'fields' => ['ID','user_login','user_email','display_name']
   ];
-  $users = get_users($args);
+ 
 
-  // 가공
-  $rows = [];
-  foreach($users as $u){
-    $qs = get_user_meta($u->ID,'bwf_questions',true);
+    $qs_now = get_user_meta($u->ID,'bwf_questions',true);
+    $hist   = get_user_meta($u->ID,'bwf_questions_history',true);
+    if (!is_array($hist)) $hist = [];
+    $items = [];
+    if (is_array($qs_now) && !empty($qs_now)) $items[]=$qs_now;
+    $items = array_merge($items, $hist);
+
+    foreach($items as $qs){
     if (!is_array($qs) || empty($qs)) continue;
-
     $row = [
-      'id'    => $u->ID,
-      'name'  => $u->display_name ?: $u->user_login,
-      'email' => $u->user_email,
-      't'     => isset($qs['_saved_at']) ? $qs['_saved_at'] : get_user_meta($u->ID,'bwf_questions_saved_at', true),
-      'data'  => $qs,
-      'flat'  => wp_strip_all_tags(implode(' ', array_map('strval', $qs)))
+        'id'    => $u->ID,
+        'name'  => $u->display_name ?: $u->user_login,
+        'email' => $u->user_email,
+        't'     => isset($qs['_saved_at']) ? $qs['_saved_at'] : '',
+        'data'  => $qs,
+        'qid'   => $qs['_id'] ?? '',
+        'flat'  => wp_strip_all_tags(implode(' ', array_map('strval',$qs)))
     ];
-    // 검색 필터
     if ($q !== '' && stripos($row['flat'], $q)===false) continue;
     $rows[] = $row;
-  }
+    }
 
   // 정렬
   $orderby = $_GET['orderby'] ?? 't';
@@ -71,7 +75,10 @@ function bwf_questions_page(){
   if (empty($rows)) { echo '<p>저장된 대표 질문이 없습니다.</p></div>'; return; }
 
   echo '<table class="widefat striped"><thead><tr>';
-  echo '<th>'.$lnk('t','저장시각').'</th><th>'.$lnk('id','대표ID').'</th><th>'.$lnk('name','대표명').'</th><th>질문 요약/전체</th>';
+  echo '<th>'.$lnk('t','저장시각').'</th><th>'.$lnk('id','대표ID').'</th><th>'.$lnk('name','대표명').'</th>';
+  $view = add_query_arg(['page'=>'bwf_question_view','uid'=>$r['id'],'qid'=>$r['qid']], admin_url('admin.php'));
+    echo '<td><a class="button" href="'.esc_url($view).'">폼 레이아웃으로 보기</a></td>';
+
   echo '</tr></thead><tbody>';
 
   foreach($rows as $r){
@@ -98,4 +105,41 @@ function bwf_questions_page(){
     echo '</tr>';
   }
   echo '</tbody></table></div>';
+}
+
+function bwf_question_view_page(){
+  $uid = intval($_GET['uid'] ?? 0);
+  $qid = sanitize_text_field($_GET['qid'] ?? '');
+  if (!$uid || !$qid){ echo '<div class="wrap"><h1>잘못된 요청</h1></div>'; return; }
+
+  $now  = get_user_meta($uid,'bwf_questions',true);
+  $hist = get_user_meta($uid,'bwf_questions_history',true); if (!is_array($hist)) $hist=[];
+  $items = [];
+  if (is_array($now) && !empty($now)) $items[]=$now;
+  $items = array_merge($items,$hist);
+
+  $found=null;
+  foreach($items as $it){ if (!empty($it['_id']) && $it['_id']===$qid){ $found=$it; break; } }
+  echo '<div class="wrap"><h1>대표 질문 보기</h1>';
+  if(!$found){ echo '<p>해당 항목을 찾을 수 없습니다.</p></div>'; return; }
+
+  echo '<div class="bwf-form" style="max-width:900px">';
+  $F = [
+    'problem'=>'1. 현재 비즈니스에서 가장 큰 고민은 무엇인가요?',
+    'value'=>'2. 어떤 문제를 해결하나요?',
+    'ideal_customer'=>'3. 누가 이용/왜 선택?',
+    'q1'=>'4-1. 맞춤 질문','q2'=>'4-2. 맞춤 질문','q3'=>'4-3. 맞춤 질문',
+    'one_question'=>'5. 1:1 한 가지','competitors'=>'6. 경쟁/차별'
+  ];
+  foreach($F as $k=>$lab){
+    echo '<div class="bwf-col-full" style="margin:10px 0 14px">';
+    echo '<label>'.$lab.'</label>';
+    if ($k==='one_question'){
+      echo '<input type="text" value="'.esc_attr($found[$k]??'').'" readonly>';
+    }else{
+      echo '<textarea readonly>'.esc_textarea($found[$k]??'').'</textarea>';
+    }
+    echo '</div>';
+  }
+  echo '</div></div>';
 }

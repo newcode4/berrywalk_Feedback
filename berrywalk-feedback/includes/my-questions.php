@@ -26,7 +26,11 @@ add_shortcode('bw_my_questions', function(){
     echo '<tr>';
     echo '<td>'.esc_html($t).'</td>';
     echo '<td>'.$sum.'</td>';
-    echo '<td><details><summary>보기</summary><ul style="margin:8px 0 0 18px; list-style:disc">';
+    
+    $view_page = get_page_by_path('my-question-view'); // [bw_view_question] 붙인 페이지
+    $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
+    $goto = add_query_arg(['qid'=>$it['_id']], $view_url);
+    echo '<td><a class="button" href="'.esc_url($goto).'">보기</a></td>';
     $map = [
       'problem'=>'① 가장 큰 고민','value'=>'② 핵심 가치','ideal_customer'=>'③ 이상적 타겟',
       'q1'=>'④-1 질문','q2'=>'④-2 질문','q3'=>'④-3 질문',

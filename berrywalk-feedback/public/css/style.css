@@ -87,5 +87,10 @@ label{display:block;font-size:14px;margin-bottom:6px}
 }
 
 :root{ --bwf-sticky-top:72px; }     /* 헤더 높이에 맞춰 조정 가능 */
-.bwf-topwrap{ position:sticky; top:var(--bwf-sticky-top); z-index:40; background:#fff;
-              padding:14px 14px 16px; border-bottom:1px solid #eee; margin:12px 0 18px; }
+/* 진행 현황: 스티키 해제 */
+.bwf-topwrap{ position: static !important; top:auto !important; margin:0 0 18px; }
+
+/* 저장 버튼: 중앙 정렬 */
+.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
+.bwf-form .bwf-actions button[type="submit"],
+.bwf-form button.bwf-btn[type="submit"]{ margin:0 auto; display:inline-flex; justify-content:center; }
