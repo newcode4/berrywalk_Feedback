@@ -1,0 +1,37 @@
+name: Build & Release
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Make zip (SUBFOLDER → growth-checklist)
+        run: |
+          set -e
+          mkdir -p pkg
+          # ✅ 레포 루트의 하위 폴더만 복사
+          rsync -a ./growth-checklist/ pkg/growth-checklist/ \
+            --delete
+          # ✅ 구조 검증: 최상위에 main 파일이 있어야 함
+          test -f pkg/growth-checklist/growth-checklist.php
+          test -f pkg/growth-checklist/plugin-update-checker/plugin-update-checker.php
+          cd pkg
+          zip -r "growth-checklist-${GITHUB_REF_NAME}.zip" "growth-checklist"
+          unzip -l "growth-checklist-${GITHUB_REF_NAME}.zip" | sed -n '1,20p'
+
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: "Release ${{ github.ref_name }}"
+          files: pkg/growth-checklist-${{ github.ref_name }}.zip

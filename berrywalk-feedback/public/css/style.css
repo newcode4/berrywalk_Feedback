@@ -1,0 +1,96 @@
+/* Berrywalk Feedback 기본 스타일 */
+.bwf-form {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: "Pretendard", "Apple SD Gothic Neo", sans-serif;
+}
+
+.bwf-form h3 {
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.bwf-form input,
+.bwf-form textarea,
+.bwf-form select {
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 15px;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.bwf-form input:focus,
+.bwf-form textarea:focus,
+.bwf-form select:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+  outline: none;
+}
+
+.bwf-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.bwf-form button {
+  padding: 14px;
+  background: linear-gradient(90deg,#6366f1,#0ea5e9);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.bwf-form button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+/* 카카오 로그인 스타일 */
+.bwf-kakao-btn {
+  background: #FEE500;
+  color: #000;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  transition: opacity 0.2s;
+}
+.bwf-kakao-btn:hover {
+  opacity: 0.8;
+}
+
+/* 관리자 CRM 테이블 */
+.wp-admin .bwf-crm-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.wp-admin .bwf-crm-table th,
+.wp-admin .bwf-crm-table td {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: left;
+}
+.wp-admin .bwf-crm-table th {
+  background: #f9fafb;
+  font-weight: 600;
+}
