@@ -46,8 +46,6 @@ add_shortcode('bw_owner_form', function(){
   ob_start(); ?>
   <div class="bwf-form">
     <?php echo $msg; ?>
-    <div class="bwf-topcount">작성 <span id="bwf-answered">0</span>/<span id="bwf-total">0</span> 문항</div>
-    <div id="bwf-progress"><div class="bwf-bar"></div></div>
 
     <h3>대표님 핵심 질문지</h3>
     <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 100자</strong>입니다.</p>
@@ -62,6 +60,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “신규 고객 유입이 너무 어렵습니다. 광고 효율이 안 나옵니다.”, “재구매율이 낮아 성장이 정체돼요.”</div>
         </div>
         <textarea name="problem" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ② 어떤 문제를 해결하나요 -->
         <label>2. 우리 서비스가 고객의 ‘어떤 문제’를 해결하나요? <span class="bwf-required">*</span></label>
@@ -70,6 +69,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “바쁜 직장인에게 집밥처럼 건강한 한 끼 배달”, “복잡한 서류 작업을 5분 만에 끝내줌”.</div>
         </div>
         <textarea name="value" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ③ 누가 이용해야 하나요/왜 선택하나요 -->
         <label>3. 이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요? <span class="bwf-required">*</span></label>
@@ -78,6 +78,7 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “운동은 하고 싶지만 시간/비용이 부족한 20대 대학생 — 15분 홈트+저렴한 구독료”.</div>
         </div>
         <textarea name="ideal_customer" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ④-1 ~ ④-3 맞춤 질문 -->
         <label>4-1. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
@@ -98,6 +99,7 @@ add_shortcode('bw_owner_form', function(){
         <label>5. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
         <div class="bwf-help"><div>예시: “처음 사용 후 무엇이 가장 달라졌나요?”</div></div>
         <input type="text" name="one_question" placeholder="예: 우리의 어떤 점이 당신 문제를 가장 잘 해결했나요?">
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
         <!-- ⑥ 경쟁/차별 -->
         <label>6. 경쟁사와의 차별점은? <span class="bwf-required">*</span></label>
@@ -106,11 +108,34 @@ add_shortcode('bw_owner_form', function(){
         <div>예시: “A는 싸지만 품질이 낮고, B는 비싸지만 퀄리티가 높다 → 우리는 적정 가격+높은 만족”.</div>
         </div>
         <textarea name="competitors" required data-minlength="50"></textarea>
+        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
 
 
       <div class="bwf-col-full bwf-actions">
         <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
       </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function(){
+        const wrap = document.currentScript.closest('.bwf-form');
+        wrap.querySelectorAll('textarea[data-minlength], input[data-minlength]').forEach(function(el){
+            const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+            const box = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper')
+            ? el.nextElementSibling : null;
+            const run = ()=> {
+            const len = (el.value||'').trim().length;
+            if (box){
+                const c = box.querySelector('.bwf-counter');
+                if(c) c.textContent = len;
+                box.classList.toggle('ok', len>=min);
+                box.title = len>=min ? '충분합니다' : (min-len)+'자 더 입력';
+            }
+            el.setCustomValidity(len>=min? '' : (min+'자 이상 입력해주세요'));
+            };
+            el.addEventListener('input', run); run();
+        });
+        });
+        </script>
+
     </form>
 
    

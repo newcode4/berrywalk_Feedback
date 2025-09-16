@@ -19,28 +19,19 @@ add_shortcode('bw_my_questions', function(){
   if (empty($items)) { echo '<p>아직 저장한 질문이 없습니다.</p></div>'; return ob_get_clean(); }
 
   echo '<table class="widefat striped"><thead><tr><th>저장시각</th><th>요약</th><th>전체</th></tr></thead><tbody>';
-  foreach($items as $it){
+    foreach($items as $it){
     $t = isset($it['_saved_at']) ? $it['_saved_at'] : '';
     $flat = wp_strip_all_tags(implode(' ', array_map('strval', $it)));
     $sum  = esc_html(mb_substr($flat,0,120)).(mb_strlen($flat)>120?'…':'');
     echo '<tr>';
     echo '<td>'.esc_html($t).'</td>';
     echo '<td>'.$sum.'</td>';
-    
-    $view_page = get_page_by_path('my-question-view'); // [bw_view_question] 붙인 페이지
+    $view_page = get_page_by_path('my-question-view');
     $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
-    $goto = add_query_arg(['qid'=>$it['_id']], $view_url);
+    $goto = add_query_arg(['qid'=>$it['_id'] ?? ''], $view_url);
     echo '<td><a class="button" href="'.esc_url($goto).'">보기</a></td>';
-    $map = [
-      'problem'=>'① 가장 큰 고민','value'=>'② 핵심 가치','ideal_customer'=>'③ 이상적 타겟',
-      'q1'=>'④-1 질문','q2'=>'④-2 질문','q3'=>'④-3 질문',
-      'one_question'=>'⑤ 1:1 한 가지','competitors'=>'⑥ 경쟁/차별'
-    ];
-    foreach($map as $k=>$tt){
-      if (!empty($it[$k])) echo '<li><b>'.$tt.':</b> '.esc_html($it[$k]).'</li>';
+    echo '</tr>';
     }
-    echo '</ul></details></td></tr>';
-  }
   echo '</tbody></table>';
   echo '<p style="margin-top:12px;"><a class="button button-primary" href="'.esc_url(home_url('/owner-questions/')).'">새 질문 작성</a></p>';
   echo '</div>';

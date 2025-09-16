@@ -55,3 +55,12 @@ add_action('admin_print_footer_scripts', function(){
   </script>
   <?php
 });
+
+
+add_action('admin_head', function(){
+  echo '<style>
+  h2:has(+ table) + .notice-error:has(.error), 
+  h2:contains("WP-Members 추가 필드"), 
+  h2:contains("WP-Members 추가 필드") ~ * { display:none !important; }
+  </style>';
+});

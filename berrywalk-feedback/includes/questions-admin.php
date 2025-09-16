@@ -35,18 +35,39 @@ function bwf_questions_page(){
 
     foreach($items as $qs){
     if (!is_array($qs) || empty($qs)) continue;
-    $row = [
+    $rows = [];
+    $q = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+
+    $users = new WP_User_Query([
+    'meta_key' => 'bwf_questions',
+    'meta_compare' => 'EXISTS',
+    'fields' => ['ID','user_login','user_email','display_name'],
+    'number' => 2000,
+    ]);
+    foreach($users->get_results() as $u){
+    $now  = get_user_meta($u->ID,'bwf_questions',true);
+    $hist = get_user_meta($u->ID,'bwf_questions_history',true); if (!is_array($hist)) $hist=[];
+    $items = [];
+    if (is_array($now) && !empty($now)) $items[]=$now;
+    $items = array_merge($items,$hist);
+
+    foreach($items as $qs){
+        if (!is_array($qs) || empty($qs)) continue;
+        $flat = wp_strip_all_tags(implode(' ', array_map('strval',$qs)));
+        if ($q!=='' && stripos($flat,$q)===false) continue;
+
+        $rows[] = [
         'id'    => $u->ID,
         'name'  => $u->display_name ?: $u->user_login,
         'email' => $u->user_email,
-        't'     => isset($qs['_saved_at']) ? $qs['_saved_at'] : '',
-        'data'  => $qs,
+        't'     => $qs['_saved_at'] ?? '',
         'qid'   => $qs['_id'] ?? '',
-        'flat'  => wp_strip_all_tags(implode(' ', array_map('strval',$qs)))
-    ];
-    if ($q !== '' && stripos($row['flat'], $q)===false) continue;
-    $rows[] = $row;
+        'flat'  => $flat,
+        'data'  => $qs,
+        ];
     }
+    }
+
 
   // 정렬
   $orderby = $_GET['orderby'] ?? 't';
@@ -78,6 +99,7 @@ function bwf_questions_page(){
   echo '<th>'.$lnk('t','저장시각').'</th><th>'.$lnk('id','대표ID').'</th><th>'.$lnk('name','대표명').'</th>';
   $view = add_query_arg(['page'=>'bwf_question_view','uid'=>$r['id'],'qid'=>$r['qid']], admin_url('admin.php'));
     echo '<td><a class="button" href="'.esc_url($view).'">폼 레이아웃으로 보기</a></td>';
+
 
   echo '</tr></thead><tbody>';
 
