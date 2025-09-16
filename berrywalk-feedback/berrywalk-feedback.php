@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) exit;
 require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 $updateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/yourname/berrywalk-feedback', // 깃헙 주소
+    'https://github.com/newcode4/berrywalk-feedback', // 깃헙 주소
     __FILE__,
     'berrywalk-feedback'
 );
