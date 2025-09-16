@@ -1,4 +1,5 @@
 name: Build & Release
+
 on:
   push:
     tags:
@@ -11,18 +12,26 @@ jobs:
   build-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Make zip (SUBFOLDER → berrywalk-feedback)
         env:
           PLUGIN_SLUG: berrywalk-feedback
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p pkg
 
           # 하위 폴더 → 패키징용 폴더로 복사
-          rsync -a "./${PLUGIN_SLUG}/" "pkg/${PLUGIN_SLUG}/" \
+          if [ ! -d "${PLUGIN_SLUG}" ]; then
+            echo "::error::Subfolder '${PLUGIN_SLUG}' not found at repo root"
+            ls -la
+            exit 1
+          fi
+
+          rsync -a "${PLUGIN_SLUG}/" "pkg/${PLUGIN_SLUG}/" \
             --delete \
             --exclude ".git" \
             --exclude ".github" \
@@ -34,9 +43,17 @@ jobs:
           test -f "pkg/${PLUGIN_SLUG}/${PLUGIN_SLUG}.php"
           test -f "pkg/${PLUGIN_SLUG}/plugin-update-checker/plugin-update-checker.php"
 
-          # ZIP 생성
+          # ZIP 생성 + 목록 프린트(디버그)
           cd pkg
           zip -r "${PLUGIN_SLUG}-${GITHUB_REF_NAME}.zip" "${PLUGIN_SLUG}"
           unzip -l "${PLUGIN_SLUG}-${GITHUB_REF_NAME}.zip" | sed -n '1,40p'
 
-      - name: Create
+      - name: Create/Update Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: "Release ${{ github.ref_name }}"
+          files: pkg/berrywalk-feedback-${{ github.ref_name }}.zip
