@@ -115,6 +115,56 @@ function bwf_render_crm_page(){
   echo '<script>document.getElementById("bwfChkAll")?.addEventListener("change",e=>{document.querySelectorAll(\'input[name="sel[]"]\').forEach(c=>c.checked=e.target.checked);});</script>';
 }
 
-$ts = isset($r['ts']) ? intval($r['ts']) : strtotime((string)($r['t'] ?? 'now'));
-$t_local = wp_date('Y-m-d H:i:s', $ts);
-echo '<td>'.esc_html($t_local).'</td>';
+$ts = isset($r['ts']) ? (int)$r['ts'] : strtotime((string)($r['t'] ?? 'now'));
+echo '<td>'.esc_html(bwf_fmt($ts)).'</td>';
+
+// 상단: GET 검색어
+$keyword = sanitize_text_field($_GET['s'] ?? '');
+
+// 역순 전체
+$raw = array_reverse(bwf_get_all_feedbacks());
+
+// 필터(대표 이름/이메일/요약 본문)
+$rowsAll = array_filter($raw, function($r) use ($keyword){
+  if($keyword==='') return true;
+  $u = get_userdata((int)($r['rep'] ?? 0));
+  $hay = implode(' ', array_filter([
+    $u? $u->display_name : '',
+    $u? $u->user_email   : '',
+    wp_json_encode($r['answers'], JSON_UNESCAPED_UNICODE)
+  ]));
+  return mb_stripos($hay, $keyword) !== false;
+});
+
+// 페이징
+$per=20; $total=count($rowsAll);
+$pages=max(1,(int)ceil($total/$per));
+$paged=max(1,(int)($_GET['paged']??1));
+$start=($paged-1)*$per;
+$rows=array_slice($rowsAll,$start,$per);
+
+// 검색 폼
+echo '<form method="get" style="margin:8px 0 14px"><input type="hidden" name="page" value="bwf-crm">';
+echo '<input type="search" name="s" value="'.esc_attr($keyword).'" placeholder="대표명/이메일/내용 검색"> ';
+echo '<button class="button">검색</button></form>';
+
+// 테이블 내 행: 개별 삭제 버튼 추가
+$del = $rid!=='' ? wp_nonce_url(
+  admin_url('admin-post.php?action=bwf_crm_del&id='.$rid),
+  'bwf_crm_del_'.$rid
+) : '';
+echo '<td>'.esc_html(bwf_fmt($ts)).'</td>';
+// ... 마지막 컬럼 옆에:
+if($rid!==''){ echo ' <a class="button button-small" href="'.$del.'" onclick="return confirm(\'삭제할까요?\')">삭제</a>'; }
+
+add_action('admin_post_bwf_crm_del', function(){
+  if(!current_user_can('manage_options')) wp_die('forbidden');
+  $id = sanitize_text_field($_GET['id'] ?? '');
+  $ok = isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'bwf_crm_del_'.$id);
+  if(!$ok || !$id) wp_safe_redirect( admin_url('admin.php?page=bwf-crm') );
+
+  $all = bwf_get_all_feedbacks();
+  $all = array_values(array_filter($all, fn($r)=> (string)($r['id']??'') !== $id));
+  update_option('bwf_feedbacks', $all, false);
+  wp_safe_redirect( admin_url('admin.php?page=bwf-crm') ); exit;
+});

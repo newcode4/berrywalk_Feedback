@@ -332,3 +332,13 @@ a.bwf-btn-secondary{ white-space:nowrap; }
 .bwf-actions{margin-top:20px}
 .bwf-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3)}
 .bwf-modal__card{max-width:420px;margin:10vh auto;background:#fff;padding:20px;border-radius:12px}
+
+/* 폼 내 안내/카운터 영역 전체 숨김 */
+.bwf-owner .bwf-helper,
+.bwf-owner .bwf-min-note { display:none !important; }
+
+/* 에러는 textarea만 빨갛게 */
+.bwf-owner .bwf-field.bwf-error textarea{ border:2px solid #ef4444 !important; outline:0; }
+
+.bwf-owner #bwf-progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+.bwf-owner #bwf-progress .bar{height:100%;width:0;transition:width .2s}

@@ -19,6 +19,8 @@ add_shortcode('bw_my_questions', function(){
   ]);
 
   ob_start();
+  echo '<style>.bwf-topwrap{display:none!important}</style>';  // 이 페이지에서만 진행현황 숨김
+
   echo '<div class="bwf-form"><h2>내 질문 저장본</h2>';
 
   if (!$q->have_posts()){

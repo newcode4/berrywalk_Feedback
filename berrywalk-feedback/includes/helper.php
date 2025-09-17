@@ -9,12 +9,10 @@ function bwf_industry_options(){
   ];
 }
 
-function bwf_now_str(){               // 문자열(서울)
-  return wp_date('Y-m-d H:i:s');
-}
-function bwf_now_ts(){                // 타임스탬프(정수)
-  return (new DateTime('now', wp_timezone()))->getTimestamp();
-}
+function bwf_tz(){ return new DateTimeZone('Asia/Seoul'); }
+function bwf_now_ts(){ return (new DateTime('now', bwf_tz()))->getTimestamp(); }
+function bwf_now_str(){ return wp_date('Y-m-d H:i:s', null, bwf_tz()); }
+function bwf_fmt($ts,$fmt='Y-m-d H:i:s'){ return wp_date($fmt, $ts, bwf_tz()); }
 
 function bwf_source_options(){
   return [
