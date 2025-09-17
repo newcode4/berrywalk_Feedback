@@ -1,7 +1,7 @@
 ﻿===== META =====
 Repo: https://github.com/newcode4/berrywalk_Feedback.git
-Branch: main  |  Tag: 0.4.1  |  Commit: 5bc0041
-Generated: 2025-09-17 11:11:36
+Branch: main  |  Tag: 0.4.2  |  Commit: f91499f
+Generated: 2025-09-17 11:31:59
 
 ===== FILE: pack-code.ps1 (4063 bytes, 113 lines) =====
 `$ext
@@ -119,19 +119,19 @@ foreach ($f in $files) {
 "생성 완료: $(Join-Path $Root $Out)  (총 approx $totalBytes bytes)"
 
 `$nl
-===== FILE: berrywalk-feedback\berrywalk-feedback.php (3001 bytes, 77 lines) =====
+===== FILE: berrywalk-feedback\berrywalk-feedback.php (2997 bytes, 77 lines) =====
 `$ext
 <?php
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.4.1
+ * Version: 0.4.2
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.4.1');
+define('BWF_VER', '0.4.2');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -152,7 +152,7 @@ try {
 /** includes */
 require_once BWF_DIR.'includes/helper.php';
 require_once BWF_DIR.'includes/signup.php';              // ✅ 가입 폼
-require_once BWF_DIR.'includes/representative-form.php'; // 대표 질문지
+// require_once BWF_DIR.'includes/representative-form.php'; // 구버전
 require_once BWF_DIR.'includes/feedback-form.php';       // 고객 피드백 (저장 단일화)
 require_once BWF_DIR.'includes/crm.php';                 // CRM 테이블
 require_once BWF_DIR.'includes/admin-users.php';         // ✅ 사용자 화면(컬럼/프로필)
@@ -559,7 +559,7 @@ function bwf_owner_builder_page(){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\admin-profile-fix.php (2991 bytes, 75 lines) =====
+===== FILE: berrywalk-feedback\includes\admin-profile-fix.php (3755 bytes, 98 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -635,6 +635,29 @@ function bwf_admin_profile_fix_footer(){
 add_action('admin_footer-profile.php','bwf_admin_profile_fix_footer');
 add_action('admin_footer-user-edit.php','bwf_admin_profile_fix_footer');
 add_action('admin_footer-user-new.php','bwf_admin_profile_fix_footer');
+
+
+// 'native' 메타가 배열이면 저장 전에 문자열로 정규화
+add_filter('sanitize_user_meta_native', function($val){
+  if (is_array($val)) {
+    $val = implode(', ', array_filter(array_map('sanitize_text_field', $val)));
+  }
+  return sanitize_text_field($val);
+});
+
+add_action('admin_init', function(){
+  if (!current_user_can('manage_options')) return;
+  if (!isset($_GET['fix_native'])) return;
+
+  global $wpdb;
+  $rows = $wpdb->get_results("SELECT user_id, meta_value FROM {$wpdb->usermeta} WHERE meta_key='native'");
+  foreach ($rows as $r) {
+    $v = maybe_unserialize($r->meta_value);
+    if (is_array($v)) {
+      update_user_meta($r->user_id, 'native', implode(', ', array_map('sanitize_text_field',$v)));
+    }
+  }
+});
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\admin-users.php (2574 bytes, 67 lines) =====
@@ -799,7 +822,7 @@ function bwf_crm_page(){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\feedback-form.php (6446 bytes, 123 lines) =====
+===== FILE: berrywalk-feedback\includes\feedback-form.php (6441 bytes, 123 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -834,7 +857,7 @@ if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
     $answers = array_map('sanitize_textarea_field', $_POST['answer'] ?? []);
     $all = get_option('bwf_feedbacks', []);
     $all[] = [
-      't'       => current_time('mysql'),
+      't' => wp_date('Y-m-d H:i:s'),
       'rep'     => $rep_id,
       'user'    => get_current_user_id(),
       'answers' => $answers,
@@ -971,45 +994,68 @@ function bwf_format_phone($digits){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\my-questions.php (2080 bytes, 47 lines) =====
+===== FILE: berrywalk-feedback\includes\my-questions.php (3284 bytes, 85 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
 
 add_shortcode('bw_my_questions', function(){
-  if(!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
-
+  if (!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
   wp_enqueue_style('bwf-forms');
 
-  $uid = get_current_user_id();
-  $now  = get_user_meta($uid,'bwf_questions', true);
-  $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
-  $items=[]; if(is_array($now)&&$now) $items[]=$now; $items=array_merge($items,$hist);
+  $uid  = get_current_user_id();
+  $page = max(1, intval($_GET['pg'] ?? 1));
+  $per  = 10;
 
-  $view_page = get_page_by_path('my-question-view');
-  $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
+  $q = new WP_Query([
+    'post_type'      => 'bwf_owner_answer',
+    'author'         => $uid,
+    'posts_per_page' => $per,
+    'paged'          => $page,
+    'orderby'        => 'date',
+    'order'          => 'DESC',
+  ]);
 
   ob_start();
   echo '<div class="bwf-form"><h2>내 질문 저장본</h2>';
-  if(empty($items)){ echo '<p>아직 저장한 질문이 없습니다.</p></div>'; return ob_get_clean(); }
 
-  // 페이지네이션
-  $per  = 10;
-  $page = max(1, intval($_GET['pg'] ?? 1));
-  $total= count($items);
-  $maxp = max(1, (int)ceil($total / $per));
-  $slice = array_slice($items, ($page-1)*$per, $per);
+  if (!$q->have_posts()){
+    echo '<p>아직 저장한 질문이 없습니다.</p></div>'; return ob_get_clean();
+  }
 
   echo '<ul class="bwf-list">';
-  foreach($slice as $it){
-    $t = esc_html($it['_saved_at'] ?? '');
-    $flat = wp_strip_all_tags(implode(' ', array_map('strval',$it)));
-    $sum  = esc_html(mb_substr($flat,0,140)).(mb_strlen($flat)>140?'…':'');
-    $goto = esc_url(add_query_arg(['qid'=>$it['_id'] ?? '','uid'=>$uid], $view_url));
-    echo "<li><span class='bwf-time'>{$t}</span> <span class='bwf-sum'>{$sum}</span> <a class='bwf-btn-secondary' href='{$goto}'>보기</a></li>";
+  while ($q->have_posts()){ $q->the_post();
+    $pid  = get_the_ID();
+    $ans  = (array) get_post_meta($pid,'bwf_answers', true);
+
+    // 요약(문자만 뽑기)
+    $flat = [];
+    $stack = [$ans];
+    while ($stack) {
+      $cur = array_pop($stack);
+      foreach ($cur as $v) {
+        if (is_array($v)) $stack[] = $v;
+        else $flat[] = trim((string)$v);
+      }
+    }
+    $short = mb_substr(implode(' ', array_filter($flat)), 0, 140) . (count($flat) ? '…' : '');
+
+    $view = esc_url( add_query_arg(['id'=>$pid], home_url('/my-question-view/')) ); // [bwf_owner_view id=".."] 페이지에 매핑
+    $del  = esc_url( wp_nonce_url( admin_url('admin-post.php?action=bwf_owner_delete&id='.$pid),
+                                   'bwf_owner_delete_'.$pid ) );
+
+    echo '<li>';
+    echo '<span class="bwf-time">'.esc_html( get_the_time('Y-m-d H:i') ).'</span> ';
+    echo '<span class="bwf-sum">'.esc_html($short).'</span> ';
+    echo '<a class="bwf-btn-secondary" href="'.$view.'">보기</a> ';
+    echo '<a class="bwf-btn-secondary" href="'.$del.'" onclick="return confirm(\'삭제할까요?\')">삭제</a>';
+    echo '</li>';
   }
+  wp_reset_postdata();
   echo '</ul>';
 
+  // 페이지네이션
+  $maxp = max(1, intval($q->max_num_pages));
   echo '<div class="bwf-pager">';
   if ($page>1) echo '<a class="bwf-btn-secondary" href="'.esc_url(add_query_arg('pg',$page-1)).'">이전</a>';
   echo '<span class="bwf-page"> '.$page.' / '.$maxp.' </span>';
@@ -1020,8 +1066,23 @@ add_shortcode('bw_my_questions', function(){
   return ob_get_clean();
 });
 
+add_action('admin_post_bwf_owner_delete', function(){
+  if (!is_user_logged_in()) wp_safe_redirect( home_url('/') );
+  $pid = absint($_GET['id'] ?? 0);
+  if (!$pid || get_post_type($pid) !== 'bwf_owner_answer') wp_safe_redirect( home_url('/') );
+
+  $nonce_ok = isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'bwf_owner_delete_'.$pid);
+  if (!$nonce_ok) wp_safe_redirect( home_url('/') );
+
+  $author = (int) get_post_field('post_author', $pid);
+  if ( get_current_user_id() === $author || current_user_can('delete_others_posts') ) {
+    wp_delete_post($pid, true);
+  }
+  wp_safe_redirect( wp_get_referer() ?: home_url('/my-questions/') ); exit;
+});
+
 `$nl
-===== FILE: berrywalk-feedback\includes\owner-questions.php (17808 bytes, 349 lines) =====
+===== FILE: berrywalk-feedback\includes\owner-questions.php (21288 bytes, 444 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -1161,6 +1222,8 @@ add_shortcode('bwf_owner_questions', function(){
   <form class="bwf-form bwf-owner" method="post" id="bwfOwnerForm" novalidate>
     <input type="hidden" name="bwf_owner_action" value="save">
     <input type="hidden" name="bwf_owner_nonce" value="<?php echo esc_attr($nonce); ?>">
+    <input type="hidden" name="bwf_submission" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>">
+
 
     <h2 class="bwf-title"><?php echo esc_html($cfg['title'] ?? '대표님 핵심 질문지'); ?></h2>
     <p class="bwf-help">
@@ -1238,12 +1301,23 @@ add_shortcode('bwf_owner_questions', function(){
       const total = parseInt(wrap.querySelector('.total').textContent,10) || 0;
       const btn   = document.getElementById('bwfOwnerSubmit');
       const modal = document.getElementById('bwf-modal');
-      const ok    = document.getElementById('bwf-modal-ok');
+      const okBtn    = document.getElementById('bwf-modal-ok');
       const form  = document.getElementById('bwfOwnerForm');
+      
 
-      function openModal(msg){ modal.querySelector('.bwf-modal__msg').textContent = msg; modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); }
-      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
-      ok.addEventListener('click', closeModal);
+       function openModal(msg){
+            modal.querySelector('.bwf-modal__msg').textContent = msg;
+            modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+        }
+        okBtn.addEventListener('click', ()=>{ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); });
+
+        function markError(el){
+            el.classList.add('bwf-error');
+            el.closest('.bwf-field')?.classList.add('bwf-error');
+        }
+        function clearErrors(){
+            form.querySelectorAll('.bwf-error').forEach(x=>x.classList.remove('bwf-error'));
+        }
 
       // 글자수 카운터 + 진행률
       function recalc(){
@@ -1268,36 +1342,36 @@ add_shortcode('bwf_owner_questions', function(){
 
       // 제출 시 검증(필수/최소 글자)
       form.addEventListener('submit', function(e){
-        let first = null; let msg = '누락된 필수 항목을 입력해 주세요.';
-        const fields = Array.from(form.querySelectorAll('textarea, input[required], select[required]'));
-        fields.forEach(el=>{
-          el.classList.remove('bwf-invalid'); el.removeAttribute('aria-invalid');
-          if(el.hasAttribute('minlength')){
-            const need = parseInt(el.getAttribute('minlength')||'0',10);
-            const now = (el.value||'').trim().length;
-            if(now < need){ el.setCustomValidity('최소 글자수 미달'); }
-            else el.setCustomValidity('');
-          }
-          if(!el.checkValidity()){
-            if(!first) first = el;
-            el.classList.add('bwf-invalid'); el.setAttribute('aria-invalid','true');
-          }
-        });
-        if(first){
-          e.preventDefault();
-          openModal(msg);
-          first.scrollIntoView({behavior:'smooth', block:'center'});
-          first.focus({preventScroll:true});
-          return;
-        }
-        // 중복 제출 방지
-        btn.disabled = true; btn.style.opacity = .7;
-      });
+            clearErrors();
+            let firstBad = null, msgs = [];
 
-      // PHP에서 에러가 내려온 경우 모달 자동오픈(문구는 서버에서 채움)
-      <?php if ($err) : ?> openModal('<?php echo esc_js($err); ?>'); <?php endif; ?>
-    })();
-    </script>
+            // 일반 문항(필수+minlength)
+            form.querySelectorAll('textarea[required]').forEach(el=>{
+            const v = (el.value||'').trim();
+            const ml = parseInt(el.getAttribute('minlength')||'0',10);
+            if (!v) { markError(el); msgs.push('필수 항목을 입력해주세요.'); if(!firstBad) firstBad=el; return; }
+            if (ml > 0 && v.length < ml) { markError(el); msgs.push(`최소 ${ml}자 이상 작성해주세요.`); if(!firstBad) firstBad=el; }
+            });
+
+            // 그룹 문항(모든 소문항 필수이지만 글자수 제한은 없음)
+            form.querySelectorAll('.bwf-sub textarea[required]').forEach(el=>{
+            const v=(el.value||'').trim();
+            if(!v){ markError(el); if(!firstBad) firstBad=el; msgs.push('소문항을 모두 입력해주세요.'); }
+            });
+
+            if (msgs.length){
+            e.preventDefault();
+            btn.disabled = false; btn.removeAttribute('aria-busy');
+            openModal('필수 항목을 확인해주세요.');
+            firstBad?.scrollIntoView({behavior:'smooth', block:'center'});
+            firstBad?.focus();
+            } else {
+            // 더블클릭 방지
+            btn.disabled = true; btn.setAttribute('aria-busy','true');
+            }
+        });
+        })();
+        </script>
   </form>
   <?php
   return ob_get_clean();
@@ -1371,6 +1445,88 @@ function bwf_sanitize_deep($val){
   if (is_array($val)){ foreach($val as $k=>$v){ $val[$k] = bwf_sanitize_deep($v); } return $val; }
   return sanitize_textarea_field((string)$val);
 }
+
+add_action('template_redirect', function(){
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
+  if (($_POST['bwf_owner_action'] ?? '') !== 'save') return;
+
+  if (!is_user_logged_in()) {
+    wp_safe_redirect( home_url('/login/') ); exit;
+  }
+
+  $uid   = get_current_user_id();
+  $nonce = $_POST['bwf_owner_nonce'] ?? '';
+  if (!wp_verify_nonce($nonce, 'bwf_owner_save')) {
+    wp_safe_redirect( add_query_arg('err','nonce', wp_get_referer() ?: home_url('/') ) ); exit;
+  }
+
+  // 2중 저장 방지: (유저ID+제출토큰)로 5분 락
+  $sub  = sanitize_text_field($_POST['bwf_submission'] ?? '');
+  $lock = "bwf_owner_lock_{$uid}_{$sub}";
+  if (empty($sub) || get_transient($lock)) {
+    wp_safe_redirect( add_query_arg('err','dup', wp_get_referer() ?: home_url('/') ) ); exit;
+  }
+  set_transient($lock, 1, 5*MINUTE_IN_SECONDS);
+
+  // 검증
+  $cfg   = bwf_owner_get_config();
+  $min   = intval($cfg['min_length'] ?? 200);
+  $qs    = (array)($cfg['questions'] ?? []);
+  $in    = (array)($_POST['q'] ?? []);
+  $errs  = [];
+  $clean = [];
+
+  foreach ($qs as $q) {
+    $id   = $q['id'] ?? '';
+    $type = $q['type'] ?? 'textarea';
+    $req  = !isset($q['required']) || $q['required'];
+    $ml   = isset($q['minlength']) && $q['minlength'] !== '' ? intval($q['minlength']) : $min;
+
+    if ($type === 'group') {
+      $subs = (array)($q['sub'] ?? []);
+      $clean[$id] = [];
+      foreach ($subs as $s) {
+        $sid  = $s['id'] ?? ''; if (!$sid) continue;
+        $sreq = !isset($s['required']) || $s['required'];
+        $val  = trim((string)($in[$id][$sid] ?? ''));
+        $clean[$id][$sid] = sanitize_textarea_field($val);
+        if ($sreq && $val === '') {
+          $errs[] = "{$q['label']} - {$s['label']} 입력 필요";
+        }
+      }
+    } else {
+      $val = trim((string)($in[$id] ?? ''));
+      $clean[$id] = sanitize_textarea_field($val);
+      if ($req) {
+        if ($val === '') { $errs[] = "{$q['label']} 입력 필요"; }
+        elseif (mb_strlen($val) < $ml) { $errs[] = "{$q['label']} 최소 {$ml}자 이상"; }
+      }
+    }
+  }
+
+  if ($errs) {
+    // 폼 재표시를 위해 POST 값 유지
+    $_POST['bwf_q_error'] = implode(' / ', $errs);
+    return; // shortcode가 같은 요청 내에서 에러를 표시
+  }
+
+  // 저장: CPT 단건
+  $title   = '대표 질문 ' . wp_date('Y-m-d H:i:s'); // 서울시간
+  $post_id = wp_insert_post([
+    'post_type'    => 'bwf_owner_answer',
+    'post_title'   => $title,
+    'post_status'  => 'publish',
+    'post_author'  => $uid,
+  ], true);
+
+  if (!is_wp_error($post_id)) {
+    update_post_meta($post_id, 'bwf_answers', $clean);
+    update_post_meta($post_id, 'bwf_submission', $sub);
+    wp_safe_redirect( add_query_arg(['saved'=>1,'id'=>$post_id], BWF_OWNER_AFTER_SAVE_URL) ); exit;
+  }
+
+  wp_safe_redirect( add_query_arg('err','save', wp_get_referer() ?: home_url('/') ) ); exit;
+});
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\questions-admin.php (3744 bytes, 95 lines) =====
@@ -1469,196 +1625,6 @@ function bwf_questions_page(){
   }
   echo '</tbody></table></div>';
 }
-
-`$nl
-===== FILE: berrywalk-feedback\includes\representative-form.php (8517 bytes, 187 lines) =====
-`$ext
-<?php
-if (!defined('ABSPATH')) exit;
-
-/**
- * 대표님 핵심 질문지 – 빌더(JSON) 기반 동적 폼
- * 저장 구조: 사용자 메타 bwf_questions (연결 키는 질문 id)
- *   - 단일문항: answers[id] = string
- *   - 그룹문항: answers[id][subId] = string
- */
-
-function bwf_owner_builder_get(){
-  $raw = get_option('bwf_owner_builder_json');
-  if(!$raw) $raw = function_exists('bwf_owner_builder_default_json') ? bwf_owner_builder_default_json() : '';
-  $cfg = json_decode($raw, true);
-  if (!is_array($cfg) || empty($cfg['questions'])) {
-    // 안전망
-    $cfg = json_decode(bwf_owner_builder_default_json(), true);
-  }
-  return $cfg;
-}
-
-add_shortcode('bw_owner_form', function(){
-  if (!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
-
-  $cfg   = bwf_owner_builder_get();
-  $title = $cfg['title'] ?? '대표님 핵심 질문지';
-  $intro = str_replace('{MIN}', intval($cfg['min_length'] ?? 200), $cfg['intro_html'] ?? '');
-  $globalMin = intval($cfg['min_length'] ?? 200);
-
-  $uid   = get_current_user_id();
-  $saved = get_user_meta($uid, 'bwf_questions', true);
-  if (!is_array($saved)) $saved = [];
-
-  // 저장
-  if (isset($_POST['bwf_save_questions']) && isset($_POST['bwf_nonce']) && wp_verify_nonce($_POST['bwf_nonce'],'bwf_owner_form')) {
-    $answers = [];
-    foreach(($cfg['questions'] ?? []) as $q){
-      $qid = $q['id'];
-      if ($q['type']==='group'){
-        $subAns = [];
-        foreach(($q['sub'] ?? []) as $s){
-          $sid = $s['id'];
-          $subAns[$sid] = sanitize_textarea_field($_POST["{$qid}__{$sid}"] ?? '');
-        }
-        $answers[$qid] = $subAns;
-      } else {
-        $answers[$qid] = sanitize_textarea_field($_POST[$qid] ?? '');
-      }
-    }
-    $data = $answers + [
-      '_saved_at'=> current_time('mysql'),
-      '_id'      => $saved['_id'] ?? uniqid('q_', true),
-    ];
-    update_user_meta($uid,'bwf_questions',$data);
-
-    $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
-    $hist[] = $data; update_user_meta($uid,'bwf_questions_history',$hist);
-  }
-
-  wp_enqueue_style('bwf-forms');
-
-  // 진행률 총합
-  $totalUnits = 0;
-  foreach(($cfg['questions'] ?? []) as $q){ $totalUnits += intval($q['count_as'] ?? 1); }
-
-  ob_start(); ?>
-  <form method="post" class="bwf-form bwf-owner" novalidate id="bwf-owner-form">
-    <?php wp_nonce_field('bwf_owner_form','bwf_nonce'); ?>
-
-    <h2 class="bwf-title"><?php echo esc_html($title); ?></h2>
-    <p class="bwf-help"><?php echo wp_kses_post($intro); ?></p>
-
-    <!-- 진행 현황 -->
-    <div class="bwf-topwrap">
-      <div class="bwf-top-title">작성 <span class="done">0</span>/<span class="total"><?php echo intval($totalUnits); ?></span>문항</div>
-      <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
-    </div>
-
-    <?php foreach(($cfg['questions'] ?? []) as $q): ?>
-      <?php
-        $qid  = $q['id'];
-        $type = $q['type'];
-        $label= $q['label'] ?? '';
-        $desc = $q['desc_html'] ?? '';
-        $ex   = $q['examples_html'] ?? '';
-        $req  = ($q['required']!==false);
-        $min  = ($q['minlength'] === '' || $q['minlength'] === null) ? ($type==='group'?0:$globalMin) : intval($q['minlength']);
-      ?>
-      <div class="bwf-field bwf-q" data-qid="<?php echo esc_attr($qid); ?>" data-type="<?php echo esc_attr($type); ?>" data-count="<?php echo intval($q['count_as']??1); ?>">
-        <?php if($type!=='group'): ?>
-          <label><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></label>
-          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
-          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
-
-          <?php if($type==='text'): ?>
-            <input type="text" name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?> value="<?php echo isset($saved[$qid])?esc_attr($saved[$qid]):''; ?>">
-          <?php else: // textarea ?>
-            <textarea name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?>><?php echo isset($saved[$qid])?esc_textarea($saved[$qid]):''; ?></textarea>
-          <?php endif; ?>
-
-          <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $min>0?' / '.$min.'자':''; ?></div>
-
-        <?php else: // group ?>
-          <h3 class="bwf-h3"><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></h3>
-          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
-          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
-
-          <?php foreach(($q['sub'] ?? []) as $s): 
-            $sid = $s['id']; $slab = $s['label'] ?? ''; $ph = $s['placeholder'] ?? '';
-            $sreq = ($s['required']!==false); $smin = intval($s['minlength'] ?? 0);
-            $name = "{$qid}__{$sid}";
-            $val  = (isset($saved[$qid]) && is_array($saved[$qid]) && isset($saved[$qid][$sid])) ? $saved[$qid][$sid] : '';
-          ?>
-            <label><?php echo esc_html($slab); ?> <?php if($sreq): ?><span class="bwf-required">*</span><?php endif; ?></label>
-            <textarea name="<?php echo esc_attr($name); ?>" rows="4" placeholder="<?php echo esc_attr($ph); ?>" <?php echo $sreq?'required':''; ?> <?php echo $smin>0?'data-minlength="'.$smin.'"':''; ?>><?php echo esc_textarea($val); ?></textarea>
-            <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $smin>0?' / '.$smin.'자':''; ?></div>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </div>
-    <?php endforeach; ?>
-
-    <div class="bwf-actions">
-      <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
-    </div>
-
-    <script>
-    (function(){
-      const f = document.getElementById('bwf-owner-form');
-      const total = Array.from(f.querySelectorAll('.bwf-q')).reduce((n,q)=> n + (parseInt(q.dataset.count||'1',10)||1), 0);
-      f.querySelector('.total').textContent = total;
-      const doneEl = f.querySelector('.done');
-      const bar    = f.querySelector('#bwf-progress .bar');
-      const label  = f.querySelector('#bwf-progress .label');
-
-      function setCounter(el, min){
-        const helper = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper') ? el.nextElementSibling : null;
-        const len = (el.value||'').trim().length;
-        if (helper){
-          const c = helper.querySelector('.bwf-counter'); if(c) c.textContent = String(len);
-          helper.classList.toggle('ok', min ? len>=min : !!len);
-        }
-        if (min){
-          el.setCustomValidity(len>=min ? '' : (min+'자 이상 입력해주세요'));
-        } else {
-          if (el.required) el.setCustomValidity(len>0 ? '' : '필수 입력입니다.');
-        }
-      }
-
-      function isQuestionDone(q){
-        const fields = q.querySelectorAll('textarea, input[type="text"]');
-        let allOk = true;
-        fields.forEach(el=>{
-          const min = parseInt(el.getAttribute('data-minlength')||'0',10);
-          const len = (el.value||'').trim().length;
-          const req = el.hasAttribute('required');
-          if (min>0){ if(len<min) allOk=false; }
-          else if (req){ if(len===0) allOk=false; }
-        });
-        return allOk;
-      }
-
-      function render(){
-        let done = 0;
-        const qs = Array.from(f.querySelectorAll('.bwf-q'));
-        qs.forEach(q=>{
-          if (isQuestionDone(q)) done += (parseInt(q.dataset.count||'1',10)||1);
-        });
-        const pct = Math.round(done/total*100);
-        doneEl.textContent = done;
-        bar.style.width = pct+'%';
-        label.textContent = pct+'%';
-      }
-
-      const inputs = Array.from(f.querySelectorAll('textarea, input[type="text"]'));
-      inputs.forEach(el=>{
-        const min = parseInt(el.getAttribute('data-minlength')||'0',10);
-        setCounter(el, min);
-        el.addEventListener('input', ()=>{ setCounter(el, min); render(); });
-      });
-      render();
-    })();
-    </script>
-  </form>
-  <?php
-  return ob_get_clean();
-});
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\shortcodes.php (7155 bytes, 197 lines) =====
@@ -10198,7 +10164,7 @@ if ( !trait_exists(VcsCheckerMethods::class, false) ) :
 
 endif;
 `$nl
-===== FILE: berrywalk-feedback\public\css\style.css (19703 bytes, 322 lines) =====
+===== FILE: berrywalk-feedback\public\css\style.css (20346 bytes, 335 lines) =====
 `$ext
 /* =======================================================================================
    Berrywalk Feedback - Global Form Styles  (네임스페이스: .bwf-*)
@@ -10521,6 +10487,19 @@ a.bwf-btn-secondary{ white-space:nowrap; }
 
 /* [Reset] 혹시 다른 CSS가 숨겼을 경우 강제 노출 */
 .bwf-owner #bwf-progress, .bwf-owner .bwf-topwrap, .bwf-owner .bwf-topcount{ display:block !important; }
+
+
+.bwf-field.bwf-error textarea { border:2px solid #ef4444 !important; outline: none; }
+.bwf-modal.is-open { display:block; }
+
+.bwf-topwrap{position:sticky;top:72px;z-index:10;background:#fff;padding:12px 0 8px}
+#bwf-progress{height:10px;background:#f1f5f9;border-radius:999px;overflow:hidden}
+#bwf-progress .bar{height:100%;width:0%}
+.bwf-field{margin:18px 0}
+.bwf-field.bwf-error textarea{border:2px solid #ef4444!important}
+.bwf-actions{margin-top:20px}
+.bwf-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3)}
+.bwf-modal__card{max-width:420px;margin:10vh auto;background:#fff;padding:20px;border-radius:12px}
 
 `$nl
 ===== FILE: berrywalk-feedback\public\js\feedback.js (10996 bytes, 290 lines) =====

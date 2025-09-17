@@ -5,6 +5,25 @@ add_action('admin_menu', function(){
   add_menu_page('Berrywalk Feedback','Berrywalk Feedback','manage_options','bwf_crm','bwf_crm_page','dashicons-feedback',26);
 });
 
+$per = 20;
+$total = count($all);
+$paged = max(1, intval($_GET['paged'] ?? 1));
+$start = ($paged-1)*$per;
+$rows = array_slice($all, $start, $per);
+
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['bwf_crm_bulk']) && check_admin_referer('bwf_crm_bulk')) {
+  $ids = array_filter((array)($_POST['sel'] ?? []), 'is_string');
+  if ($ids) {
+    $all = array_values(array_filter(get_option('bwf_feedbacks', []), function($r) use ($ids){
+      $rid = (string)($r['id'] ?? '');
+      return $rid === '' || !in_array($rid, $ids, true); // id 없는 구데이터는 보호 → 개별삭제로 처리
+    }));
+    update_option('bwf_feedbacks', $all, false);
+  }
+  wp_safe_redirect( remove_query_arg(['paged']) ); exit;
+}
+
+
 function bwf_crm_page(){
   $all = get_option('bwf_feedbacks',[]);
   echo '<div class="wrap"><h1>피드백 CRM</h1>';
@@ -86,3 +105,44 @@ function bwf_crm_page(){
   }
   echo '</tbody></table></div>';
 }
+
+// 테이블 폼 & 체크박스/삭제 버튼
+echo '<form method="post">';
+wp_nonce_field('bwf_crm_bulk');
+echo '<table class="widefat striped"><thead><tr>';
+echo '<th style="width:24px"><input type="checkbox" id="chkAll"></th>';
+echo '<th>'.$link('t','시각').'</th><th>'.$link('rep','대표ID').'</th><th>'.$link('user','작성자').'</th><th>요약/보기</th>';
+echo '</tr></thead><tbody>';
+
+foreach($rows as $r){
+  $rid = (string)($r['id'] ?? ''); // 구데이터면 빈문자
+  // ... (요약 생성은 기존대로)
+  echo '<tr>';
+  echo '<td>';
+  if ($rid!=='') echo '<input type="checkbox" name="sel[]" value="'.esc_attr($rid).'">';
+  echo '</td>';
+  echo '<td>'.esc_html($r['t']).'</td>';
+  echo '<td>'.intval($r['rep']??0).'</td>';
+  echo '<td>'.intval($r['user']??0).'</td>';
+  echo '<td><div>'.esc_html($short).'</div>'.$view.'</td>';
+  echo '</tr>';
+}
+echo '</tbody></table>';
+
+echo '<p><button class="button button-secondary" name="bwf_crm_bulk" value="1" onclick="return confirm(\'선택 항목을 삭제할까요?\')">선택 삭제</button></p>';
+echo '</form>';
+
+echo '<div class="tablenav"><div class="tablenav-pages">';
+$pages = max(1, ceil($total/$per));
+if ($pages>1){
+  $base = remove_query_arg('paged');
+  echo '<span class="displaying-num">총 '.intval($total).'개</span> ';
+  echo '<span class="pagination-links">';
+  if ($paged>1) echo '<a class="tablenav-pages-navspan" href="'.esc_url(add_query_arg('paged',$paged-1,$base)).'">‹</a> ';
+  echo '<span class="paging-input">'.$paged.' / '.$pages.'</span>';
+  if ($paged<$pages) echo ' <a class="tablenav-pages-navspan" href="'.esc_url(add_query_arg('paged',$paged+1,$base)).'">›</a>';
+  echo '</span>';
+}
+echo '</div></div>';
+
+echo '<script>document.getElementById("chkAll")?.addEventListener("change",e=>{document.querySelectorAll(\'input[name="sel[]"]\').forEach(c=>c.checked=e.target.checked);});</script>';

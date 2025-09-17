@@ -63,6 +63,11 @@ function bwf_owner_get_config(){
   return $arr;
 }
 
+// (쇼트코드 콜백 시작 부분)
+wp_enqueue_style('bwf-forms');
+wp_enqueue_script('bwf-owner'); // 등록된 feedback.js를 재사용 중이면 이 핸들로
+
+
 /* --------------------------------------------------------------------------
    1) CPT 등록: bwf_owner_answer (개별 저장)
 -------------------------------------------------------------------------- */
@@ -84,7 +89,7 @@ add_action('init', function(){
    - 예시는 숨기고 질문/답변만 표시 (폼과 동일 톤)
 -------------------------------------------------------------------------- */
 add_shortcode('bwf_owner_view', function($atts){
-  $id = intval($atts['id'] ?? 0);
+  $id = intval($atts['id'] ?? ($_GET['id'] ?? 0)); // ← GET?id= 도 허용
   if (!$id) return '';
   $post = get_post($id);
   if (!$post || $post->post_type!=='bwf_owner_answer') return '';
@@ -208,84 +213,89 @@ add_shortcode('bwf_owner_questions', function(){
     </div>
 
     <script>
-    (function(){
-      const wrap  = document.querySelector('.bwf-owner');
-      const bar   = wrap.querySelector('#bwf-progress .bar');
-      const done  = wrap.querySelector('.done');
-      const total = parseInt(wrap.querySelector('.total').textContent,10) || 0;
-      const btn   = document.getElementById('bwfOwnerSubmit');
-      const modal = document.getElementById('bwf-modal');
-      const okBtn    = document.getElementById('bwf-modal-ok');
-      const form  = document.getElementById('bwfOwnerForm');
-      
+(function(){
+  const form  = document.getElementById('bwfOwnerForm');
+  const btn   = form?.querySelector('button[type=submit],input[type=submit]');
+  const total = parseInt(document.querySelector('.bwf-top-title .total')?.textContent || '0', 10);
+  const bar   = document.querySelector('#bwf-progress .bar');
+  const doneEl= document.querySelector('.bwf-top-title .done');
 
-       function openModal(msg){
-            modal.querySelector('.bwf-modal__msg').textContent = msg;
-            modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
-        }
-        okBtn.addEventListener('click', ()=>{ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); });
+  function clearErrors(){ form.querySelectorAll('.bwf-error').forEach(x=>x.classList.remove('bwf-error')); }
+  function markError(el){ el.classList.add('bwf-error'); el.closest('.bwf-field')?.classList.add('bwf-error'); }
 
-        function markError(el){
-            el.classList.add('bwf-error');
-            el.closest('.bwf-field')?.classList.add('bwf-error');
-        }
-        function clearErrors(){
-            form.querySelectorAll('.bwf-error').forEach(x=>x.classList.remove('bwf-error'));
-        }
+  function questionUnits(){ // count_as(질문 수) 계산
+    const units = [];
+    form.querySelectorAll('.bwf-field').forEach(w=>{
+      const isGroup = !!w.querySelector('.bwf-sub textarea');
+      units.push({wrap:w, isGroup});
+    });
+    return units;
+  }
 
-      // 글자수 카운터 + 진행률
-      function recalc(){
-        // 질문형(글자수 있는 애들만 카운트)
-        const groups = Array.from(wrap.querySelectorAll('.bwf-field'));
-        let okCount = 0;
-        groups.forEach(g=>{
-          const ta = g.querySelector('textarea[minlength]');
-          if(!ta) return; // 소문항 그룹 제외
-          const need = parseInt(ta.getAttribute('minlength') || '0', 10);
-          const now  = (ta.value || '').trim().length;
-          const counter = g.querySelector('.bwf-counter');
-          if(counter) counter.textContent = `${now} / ${need}자`;
-          if(need === 0 ? (now>0) : (now >= need)) okCount++;
-        });
-        done.textContent = okCount;
-        const pct = Math.min(100, Math.round((okCount/Math.max(1,total))*100));
-        bar.style.width = pct + '%';
+  function isFilledTextarea(el){
+    const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
+    const v = (el.value || '').trim();
+    return (v.length >= min);
+  }
+
+  function unitDone(unit){
+    if(!unit.isGroup){
+      const el = unit.wrap.querySelector('textarea[required], textarea');
+      return el ? isFilledTextarea(el) : true;
+    }else{
+      const subs = unit.wrap.querySelectorAll('.bwf-sub textarea[required], .bwf-sub textarea');
+      let all = true;
+      subs.forEach(s=>{ if((s.value||'').trim()==='') all=false; });
+      return all; // 소문항 모두 채워지면 1문항으로 인정
+    }
+  }
+
+  function refreshProgress(){
+    const units = questionUnits();
+    let done = 0; units.forEach(u=>{ if(unitDone(u)) done++; });
+    const pct = total>0 ? Math.round((done/total)*100) : 0;
+    if(doneEl) doneEl.textContent = String(done);
+    if(bar) bar.style.width = pct + '%';
+  }
+
+  // 입력 감지로 진행률 업데이트
+  form.querySelectorAll('textarea').forEach(el=>{
+    el.addEventListener('input', refreshProgress);
+  });
+  refreshProgress();
+
+  form.addEventListener('submit', function(e){
+    clearErrors();
+    let firstBad = null;
+
+    // 필수 & 최소 글자수 체크
+    form.querySelectorAll('textarea[required]').forEach(el=>{
+      const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
+      const v = (el.value||'').trim();
+      if(!v || (min>0 && v.length < min)){
+        markError(el);
+        if(!firstBad) firstBad = el;
       }
-      wrap.addEventListener('input', recalc);
-      recalc();
+    });
+    // 그룹(소문항) 모두 채워졌는지 체크
+    form.querySelectorAll('.bwf-field .bwf-sub textarea[required]').forEach(el=>{
+      const v = (el.value||'').trim();
+      if(!v){ markError(el); if(!firstBad) firstBad=el; }
+    });
 
-      // 제출 시 검증(필수/최소 글자)
-      form.addEventListener('submit', function(e){
-            clearErrors();
-            let firstBad = null, msgs = [];
+    if(firstBad){
+      e.preventDefault();
+      btn?.removeAttribute('aria-busy'); btn?.removeAttribute('disabled');
+      alert('필수 항목을 확인해주세요.'); // ← 요구사항: 실제 팝업
+      firstBad.scrollIntoView({behavior:'smooth', block:'center'}); firstBad.focus();
+    }else{
+      // 더블클릭 방지
+      btn?.setAttribute('aria-busy','true'); btn?.setAttribute('disabled','disabled');
+    }
+  });
+})();
+</script>
 
-            // 일반 문항(필수+minlength)
-            form.querySelectorAll('textarea[required]').forEach(el=>{
-            const v = (el.value||'').trim();
-            const ml = parseInt(el.getAttribute('minlength')||'0',10);
-            if (!v) { markError(el); msgs.push('필수 항목을 입력해주세요.'); if(!firstBad) firstBad=el; return; }
-            if (ml > 0 && v.length < ml) { markError(el); msgs.push(`최소 ${ml}자 이상 작성해주세요.`); if(!firstBad) firstBad=el; }
-            });
-
-            // 그룹 문항(모든 소문항 필수이지만 글자수 제한은 없음)
-            form.querySelectorAll('.bwf-sub textarea[required]').forEach(el=>{
-            const v=(el.value||'').trim();
-            if(!v){ markError(el); if(!firstBad) firstBad=el; msgs.push('소문항을 모두 입력해주세요.'); }
-            });
-
-            if (msgs.length){
-            e.preventDefault();
-            btn.disabled = false; btn.removeAttribute('aria-busy');
-            openModal('필수 항목을 확인해주세요.');
-            firstBad?.scrollIntoView({behavior:'smooth', block:'center'});
-            firstBad?.focus();
-            } else {
-            // 더블클릭 방지
-            btn.disabled = true; btn.setAttribute('aria-busy','true');
-            }
-        });
-        })();
-        </script>
   </form>
   <?php
   return ob_get_clean();
@@ -441,3 +451,4 @@ add_action('template_redirect', function(){
 
   wp_safe_redirect( add_query_arg('err','save', wp_get_referer() ?: home_url('/') ) ); exit;
 });
+
