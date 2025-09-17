@@ -189,10 +189,10 @@ add_shortcode('bwf_owner_questions', function(){
           $val = isset($old[$qid]) ? (string)$old[$qid] : '';
         ?>
           <textarea name="q[<?php echo $qid; ?>]" rows="5" <?php echo $req?'required':''; ?> minlength="<?php echo intval($ml); ?>" placeholder="내용을 입력하세요."><?php echo esc_textarea($val); ?></textarea>
-          <div class="bwf-helper">
+          <!-- <div class="bwf-helper">
             <span class="bwf-guide"><?php echo intval($ml); ?>자 이상</span>
             <span class="bwf-counter">0 / <?php echo intval($ml); ?>자</span>
-          </div>
+          </div> -->
         <?php endif; ?>
       </div>
     <?php endforeach; ?>
@@ -213,88 +213,82 @@ add_shortcode('bwf_owner_questions', function(){
     </div>
 
     <script>
-(function(){
-  const form  = document.getElementById('bwfOwnerForm');
-  const btn   = form?.querySelector('button[type=submit],input[type=submit]');
-  const total = parseInt(document.querySelector('.bwf-top-title .total')?.textContent || '0', 10);
-  const bar   = document.querySelector('#bwf-progress .bar');
-  const doneEl= document.querySelector('.bwf-top-title .done');
+        (function(){
+        const form  = document.getElementById('bwfOwnerForm');
+        const btn   = form?.querySelector('button[type=submit],input[type=submit]');
+        const bar   = document.querySelector('#bwf-progress .bar');
+        const total = parseInt(document.querySelector('.bwf-top-title .total')?.textContent || '0', 10);
+        const doneEl= document.querySelector('.bwf-top-title .done');
 
-  function clearErrors(){ form.querySelectorAll('.bwf-error').forEach(x=>x.classList.remove('bwf-error')); }
-  function markError(el){ el.classList.add('bwf-error'); el.closest('.bwf-field')?.classList.add('bwf-error'); }
+        function clearFieldError(wrap){
+            wrap.classList.remove('bwf-error');
+            const ta = wrap.querySelector('textarea');
+            if (ta) ta.classList.remove('bwf-error');
+        }
+        function setFieldError(wrap){
+            wrap.classList.add('bwf-error');
+            const ta = wrap.querySelector('textarea');
+            if (ta) ta.classList.add('bwf-error'); // ← textarea만 빨강, 예시 박스엔 영향 없음
+        }
+        function isValidTextarea(el){
+            const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
+            const v = (el.value || '').trim();
+            return (min>0) ? v.length >= min : v.length > 0;
+        }
+        function refreshProgress(){
+            const units = [...form.querySelectorAll('.bwf-field')];
+            let done = 0;
+            units.forEach(w=>{
+            const subs = w.querySelectorAll('.bwf-sub textarea');
+            if (subs.length){
+                let all = true;
+                subs.forEach(s=>{ if ((s.value||'').trim()==='') all=false; });
+                if (all) done++;
+            }else{
+                const el = w.querySelector('textarea');
+                if (el && isValidTextarea(el)) done++;
+            }
+            });
+            const pct = total>0 ? Math.round((done/total)*100) : 0;
+            if (doneEl) doneEl.textContent = String(done);
+            if (bar) bar.style.width = pct + '%';
+        }
 
-  function questionUnits(){ // count_as(질문 수) 계산
-    const units = [];
-    form.querySelectorAll('.bwf-field').forEach(w=>{
-      const isGroup = !!w.querySelector('.bwf-sub textarea');
-      units.push({wrap:w, isGroup});
-    });
-    return units;
-  }
+        // 입력 시 즉시 에러 해제 + 진행률 갱신
+        form.querySelectorAll('textarea').forEach(el=>{
+            el.addEventListener('input', ()=>{
+            const wrap = el.closest('.bwf-field');
+            if (isValidTextarea(el)) clearFieldError(wrap);
+            refreshProgress();
+            });
+        });
+        refreshProgress();
 
-  function isFilledTextarea(el){
-    const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
-    const v = (el.value || '').trim();
-    return (v.length >= min);
-  }
+        form.addEventListener('submit', function(e){
+            let firstBad = null;
+            form.querySelectorAll('.bwf-field').forEach(w=>clearFieldError(w));
 
-  function unitDone(unit){
-    if(!unit.isGroup){
-      const el = unit.wrap.querySelector('textarea[required], textarea');
-      return el ? isFilledTextarea(el) : true;
-    }else{
-      const subs = unit.wrap.querySelectorAll('.bwf-sub textarea[required], .bwf-sub textarea');
-      let all = true;
-      subs.forEach(s=>{ if((s.value||'').trim()==='') all=false; });
-      return all; // 소문항 모두 채워지면 1문항으로 인정
-    }
-  }
+            // 일반 문항
+            form.querySelectorAll('.bwf-field textarea[required]').forEach(el=>{
+            if (!isValidTextarea(el)) { if(!firstBad) firstBad = el; setFieldError(el.closest('.bwf-field')); }
+            });
+            // 그룹 문항
+            form.querySelectorAll('.bwf-field .bwf-sub textarea[required]').forEach(el=>{
+            if ((el.value||'').trim()===''){ if(!firstBad) firstBad = el; setFieldError(el.closest('.bwf-field')); }
+            });
 
-  function refreshProgress(){
-    const units = questionUnits();
-    let done = 0; units.forEach(u=>{ if(unitDone(u)) done++; });
-    const pct = total>0 ? Math.round((done/total)*100) : 0;
-    if(doneEl) doneEl.textContent = String(done);
-    if(bar) bar.style.width = pct + '%';
-  }
+            if(firstBad){
+            e.preventDefault();
+            btn?.removeAttribute('aria-busy'); btn?.removeAttribute('disabled');
+            alert('필수 항목을 확인해주세요.');
+            firstBad.scrollIntoView({behavior:'smooth', block:'center'}); firstBad.focus();
+            }else{
+            btn?.setAttribute('aria-busy','true'); btn?.setAttribute('disabled','disabled');
+            }
+        });
+        })();
+        </script>
 
-  // 입력 감지로 진행률 업데이트
-  form.querySelectorAll('textarea').forEach(el=>{
-    el.addEventListener('input', refreshProgress);
-  });
-  refreshProgress();
-
-  form.addEventListener('submit', function(e){
-    clearErrors();
-    let firstBad = null;
-
-    // 필수 & 최소 글자수 체크
-    form.querySelectorAll('textarea[required]').forEach(el=>{
-      const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
-      const v = (el.value||'').trim();
-      if(!v || (min>0 && v.length < min)){
-        markError(el);
-        if(!firstBad) firstBad = el;
-      }
-    });
-    // 그룹(소문항) 모두 채워졌는지 체크
-    form.querySelectorAll('.bwf-field .bwf-sub textarea[required]').forEach(el=>{
-      const v = (el.value||'').trim();
-      if(!v){ markError(el); if(!firstBad) firstBad=el; }
-    });
-
-    if(firstBad){
-      e.preventDefault();
-      btn?.removeAttribute('aria-busy'); btn?.removeAttribute('disabled');
-      alert('필수 항목을 확인해주세요.'); // ← 요구사항: 실제 팝업
-      firstBad.scrollIntoView({behavior:'smooth', block:'center'}); firstBad.focus();
-    }else{
-      // 더블클릭 방지
-      btn?.setAttribute('aria-busy','true'); btn?.setAttribute('disabled','disabled');
-    }
-  });
-})();
-</script>
 
   </form>
   <?php
@@ -350,6 +344,8 @@ add_action('init', function(){
     'post_type'   => 'bwf_owner_answer',
     'post_title'  => '대표 질문 - '. current_time('Y-m-d H:i:s'),
     'post_status' => 'publish',
+    'post_date'   => bwf_now_str(),
+    'post_date_gmt' => null,
     'post_author' => $uid,
   ], true);
   if (is_wp_error($post_id)){

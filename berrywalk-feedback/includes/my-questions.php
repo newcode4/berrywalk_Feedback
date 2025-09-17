@@ -46,8 +46,11 @@ add_shortcode('bw_my_questions', function(){
     $del  = esc_url( wp_nonce_url( admin_url('admin-post.php?action=bwf_owner_delete&id='.$pid),
                                    'bwf_owner_delete_'.$pid ) );
 
+    $u = get_post_time('U', true, $pid);           // GMT 기준 타임스탬프
+    $time_local = wp_date('Y-m-d H:i', $u);        // 사이트 타임존으로 포맷
+
     echo '<li>';
-    echo '<span class="bwf-time">'.esc_html( get_the_time('Y-m-d H:i') ).'</span> ';
+    echo '<span class="bwf-time">'.esc_html($time_local).'</span>';
     echo '<span class="bwf-sum">'.esc_html($short).'</span> ';
     echo '<a class="bwf-btn-secondary" href="'.$view.'">보기</a> ';
     echo '<a class="bwf-btn-secondary" href="'.$del.'" onclick="return confirm(\'삭제할까요?\')">삭제</a>';

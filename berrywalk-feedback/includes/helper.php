@@ -8,6 +8,14 @@ function bwf_industry_options(){
     'education'=>'교육/강의','local'=>'로컬서비스','consulting'=>'컨설팅/대행','finance'=>'금융/핀테크','etc'=>'기타'
   ];
 }
+
+function bwf_now_str(){               // 문자열(서울)
+  return wp_date('Y-m-d H:i:s');
+}
+function bwf_now_ts(){                // 타임스탬프(정수)
+  return (new DateTime('now', wp_timezone()))->getTimestamp();
+}
+
 function bwf_source_options(){
   return [
     'instagram'=>'인스타그램','youtube'=>'유튜브','search'=>'검색(네이버/구글)',

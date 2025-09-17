@@ -30,8 +30,11 @@ if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
   if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['bwf_submit'])) {
     $answers = array_map('sanitize_textarea_field', $_POST['answer'] ?? []);
     $all = get_option('bwf_feedbacks', []);
+    if (!is_array($all)) $all = [];
     $all[] = [
-      't' => wp_date('Y-m-d H:i:s'),
+      'id'      => uniqid('fb_', true),
+      'ts'      => bwf_now_ts(),          // ← 숫자 타임스탬프
+      't'       => bwf_now_str(),         // ← 문자열(가독용)
       'rep'     => $rep_id,
       'user'    => get_current_user_id(),
       'answers' => $answers,

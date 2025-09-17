@@ -6,7 +6,16 @@ add_shortcode('bw_view_question', function(){
 
   $qid = sanitize_text_field($_GET['qid'] ?? '');
   $uid = intval($_GET['uid'] ?? 0);
-  if (!$qid || !$uid) return '<div class="bwf-form"><p>잘못된 접근입니다.</p></div>';
+  $id = intval($atts['id'] ?? ($_GET['id'] ?? 0));
+  if (!$id) return '<div class="bwf-form">잘못된 접근입니다.</div>';
+  $post = get_post($id);
+  if (!$post || get_post_type($post) !== 'bwf_owner_answer') return '<div class="bwf-form">잘못된 접근입니다.</div>';
+
+  // 권한: 작성자거나, 관리자면 통과
+  $author = (int)$post->post_author;
+  if ( get_current_user_id() !== $author && !current_user_can('manage_options') ) {
+    return '<div class="bwf-form">접근 권한이 없습니다.</div>';
+}
 
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
