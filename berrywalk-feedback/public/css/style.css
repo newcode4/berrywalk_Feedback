@@ -1,157 +1,155 @@
-/* 레이아웃 */
-.bwf-form{max-width:840px;margin:24px auto;padding:24px;background:#fff;border-radius:16px;
-  box-shadow:0 6px 20px rgba(0,0,0,.06);font-family:"Pretendard","Apple SD Gothic Neo",sans-serif}
-.bwf-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.bwf-col-full{grid-column:1/-1}
-@media(max-width:768px){ .bwf-grid{grid-template-columns:1fr} }
+/* =========================
+   Berrywalk Feedback - Global Form Styles
+   (safe namespace: .bwf-*)
+   ========================= */
 
-label{display:block;font-size:14px;margin-bottom:6px}
-.bwf-required{color:#ef4444}
-
-/* 입력 */
-.bwf-form input, .bwf-form select, .bwf-form textarea{
-  width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;
-  transition:border-color .2s, box-shadow .2s;background:#fff
-}
-.bwf-form textarea{min-height:120px;resize:vertical}
-.bwf-form input:focus, .bwf-form select:focus, .bwf-form textarea:focus{
-  border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.2);outline:0
-}
-.bwf-actions{text-align:center}
-.bwf-form button{padding:14px 20px;background:linear-gradient(90deg,#6366f1,#0ea5e9);
-  color:#fff;border:0;border-radius:9999px;font-weight:700;cursor:pointer}
-.bwf-form hr{border:0;border-top:1px solid #eee;margin:8px 0}
-
-/* 진행/카운터/오류 */
-.bwf-topcount{display:flex;justify-content:flex-end;margin:0 0 6px;font-size:13px;color:#6b7280}
-#bwf-progress{margin:0 0 18px;background:#f3f4f6;height:10px;border-radius:999px;overflow:hidden}
-#bwf-progress .bwf-bar{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#34d399)}
-.bwf-helper{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.bwf-helper .bwf-guide{color:#9ca3af}
-.bwf-helper .bwf-counter{color:#6b7280}
-.bwf-error{color:#ef4444;margin-top:4px;width:100%}
-.bwf-invalid{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.15) !important}
-.bwf-error-text{color:#ef4444;margin-bottom:8px}
-
-
-
-/* 상단 진행바 스티키 */
-.bwf-sticky, .bwf-topcount { position: sticky; top: 0; background:#fff; z-index: 40; }
-.bwf-topcount { padding: 10px 14px; border-bottom:1px solid #eee; font-weight:600; }
-#bwf-progress { position: relative; height: 10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar { position:absolute; left:0; top:0; height:100%; width:0%; background: linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label { position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
-.bwf-helper { display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-top:6px; }
-.bwf-helper .bwf-counter { font-variant-numeric: tabular-nums; }
-
-/* 폼 기본 타이포/여백 */
-.bwf-form { font-size:16.5px; line-height:1.7; }
-.bwf-form h2, .bwf-form h3 { margin: 32px 0 14px; }
-.bwf-form label { display:block; font-weight:600; margin: 16px 0 8px; }
-
-/* 입력 필드 */
-.bwf-form textarea,
-.bwf-form input[type="text"],
-.bwf-form input[type="url"],
-.bwf-form input[type="tel"] { width:100%; padding:12px 14px; }
-
-/* 제출 버튼 크게 */
-.bwf-form .bwf-submit,
-.bwf-form button[type="submit"],
-.bwf-form input[type="submit"]{
-  display:block; width:100%; max-width:420px; height:52px;
-  font-size:18px; border-radius:12px;
+/* Design tokens */
+:root{
+  --bwf-accent1:#0ea5e9;
+  --bwf-accent2:#6366f1;
+  --bwf-success:#16a34a;
+  --bwf-danger:#ef4444;
+  --bwf-text:#0f172a;
+  --bwf-muted:#f3f4f6;
+  --bwf-muted-2:#eef2f7;
+  --bwf-border:#e5e7eb;
+  --bwf-label:#475569;
 }
 
-/* 진행 현황(스티키) */
-.bwf-topwrap{ position:sticky; top:10px; z-index:40; background:#fff; padding:12px 14px 16px; border-bottom:1px solid #eee; margin-bottom:18px; }
-.bwf-topwrap .bwf-top-title{ font-weight:700; margin-bottom:8px; }
-#bwf-progress{ position:relative; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar{ position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label{ position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
-.bwf-helper{ display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:#64748b; }
-.bwf-helper b{ font-variant-numeric: tabular-nums; }
+/* --------- Layout / Typography --------- */
+.bwf-form{
+  box-sizing:border-box;
+  max-width:880px;
+  margin:24px auto 56px;
+  padding:24px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 6px 20px rgba(0,0,0,.06);
+  font-family:"Pretendard","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  font-size:16.5px; line-height:1.7; color:var(--bwf-text);
+}
+.bwf-title{ text-align:center; margin:4px 0 10px; font-weight:800; letter-spacing:-.2px; }
+.bwf-required-note{ text-align:center; color:#6b7280; margin:0 0 14px; }
 
-/* 글자수 메타 */
-.bwf-count { margin-top:6px; display:flex; gap:8px; font-size:12px; color:#64748b; }
-.bwf-count .now{min-width:64px}
-.bwf-count .need{color:#334155}
-
-/* 회원가입 폼 전용(대표: shortcode가 .bwf-form.bwf-grid 구조) */
-.bwf-form.bwf-grid{ font-size:17.5px; line-height:1.75; }
-.bwf-form.bwf-grid label{ margin:14px 0 8px; font-weight:600; }
-.bwf-form.bwf-grid input, .bwf-form.bwf-grid select{ padding:12px 14px; }
-.bwf-form.bwf-grid .bwf-actions{ margin:28px 0 8px; }
-.bwf-form.bwf-grid .bwf-actions button{
-  width:100%; max-width:440px; height:56px; font-size:18px; border-radius:14px;
+.bwf-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.bwf-col-full{ grid-column:1 / -1; }
+@media (max-width:768px){
+  .bwf-grid{ grid-template-columns:1fr; }
 }
 
-:root{ --bwf-sticky-top:72px; }     /* 헤더 높이에 맞춰 조정 가능 */
-/* 진행 현황: 스티키 해제 */
-.bwf-topwrap{ position: static !important; top:auto !important; margin:0 0 18px; }
-
-/* 저장 버튼: 중앙 정렬 */
-.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
-.bwf-form .bwf-actions button[type="submit"],
-.bwf-form button.bwf-btn[type="submit"]{ margin:0 auto; display:inline-flex; justify-content:center; }
-
-/* 회원가입 폼에서 진행바/카운터 숨김 */
-.bwf-form.bwf-grid .bwf-topcount,
-.bwf-form.bwf-grid #bwf-progress { display:none !important; }
-
-/* 대표 질문지: 제목/설명/예시 타이포 */
-.bwf-form h3 { font-size:28px; font-weight:800; margin:8px 0 18px; }
-.bwf-form label { display:block; font-size:18px; font-weight:700; margin:18px 0 8px; }
-.bwf-form .bwf-help { font-size:13.5px; color:#64748b; margin:6px 0 10px; }
-.bwf-form textarea, .bwf-form input[type="text"] { width:100%; font-size:16px; line-height:1.6; }
-
-
-/* 대표 질문지의 진행바 요소가 남아 있더라도 가림 (중복/스티키 방지) */
-#bwf-progress, .bwf-topwrap, .bwf-topcount { display:none !important; }
-
-/* 저장 버튼 중앙 정렬 */
-.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
-.bwf-form .bwf-actions .bwf-btn,
-.bwf-form .bwf-actions button[type="submit"]{ min-width:260px; height:56px; font-size:18px; border-radius:14px; }
-
-/* 회원가입 전용 톤업 */
-.bwf-form h2, .bwf-form h3 { font-size: 1.5rem; letter-spacing: -0.2px; }
-.bwf-form .bwf-actions, .bwf-actions { text-align:center; margin: 24px 0 0; }
-.bwf-form .bwf-actions .button, .bwf-btn-primary {
-  display:inline-block; min-width: 260px; padding: 14px 22px; border-radius: 10px;
-  font-size: 1rem; line-height: 1; 
+.bwf-form h2,.bwf-form h3{ margin:32px 0 14px; }
+.bwf-form h3{ font-size:28px; font-weight:800; margin:8px 0 18px; }
+.bwf-form label{
+  display:block; font-size:16px; font-weight:700; margin:16px 0 8px; color:var(--bwf-label);
 }
-.bwf-form { margin-top: 18px; }
+.bwf-help{ font-size:13.5px; color:#64748b; margin:6px 0 10px; }
+.bwf-required{ color:var(--bwf-danger); }
 
-.bwf-list { list-style:none; padding:0; margin: 10px 0; }
-.bwf-list li { display:flex; gap:14px; align-items:center; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px; }
-.bwf-list .bwf-time { width:150px; color:#6b7280; }
-.bwf-list .bwf-sum { flex:1; }
-
-/* 한 컬럼 레이아웃 */
-.bwf-grid.bwf-onecol { display:grid; grid-template-columns:1fr; gap:16px; }
-.bwf-form textarea, .bwf-form input[type="text"], .bwf-form input[type="url"],
-.bwf-form input[type="email"], .bwf-form input[type="number"], .bwf-form select {
+/* --------- Inputs --------- */
+.bwf-form input,
+.bwf-form select,
+.bwf-form textarea{
   width:100%; box-sizing:border-box;
+  padding:12px 14px;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  font-size:15px;
+  background:#fff;
+  transition:border-color .2s, box-shadow .2s;
+}
+.bwf-form textarea{ min-height:120px; resize:vertical; }
+.bwf-form input:focus,
+.bwf-form select:focus,
+.bwf-form textarea:focus{
+  border-color:var(--bwf-accent2);
+  box-shadow:0 0 0 3px rgba(99,102,241,.2);
+  outline:0;
 }
 
-/* 진행바 */
-.bwf-sticky { position:sticky; top:0; background:#fff; z-index:5; padding:12px 0 8px; }
-#bwf-progress { position:relative; height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar { height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label { position:absolute; top:-22px; right:0; font-size:12px; color:#475569; }
-.bwf-topcount { font-size:12px; color:#475569; margin-bottom:6px; }
+/* --------- Actions / Buttons --------- */
+.bwf-actions{ display:flex; justify-content:center; gap:10px; margin-top:18px; }
+.bwf-btn, .bwf-btn-secondary, .bwf-form button[type="submit"]{
+  display:inline-flex; justify-content:center; align-items:center;
+  min-width:200px; height:52px; padding:0 22px;
+  border-radius:12px; border:1px solid transparent; cursor:pointer;
+  font-weight:700; line-height:1; text-decoration:none;
+}
+.bwf-btn, .bwf-form button[type="submit"]{
+  background:linear-gradient(90deg,var(--bwf-accent2),var(--bwf-accent1));
+  color:#fff; border-color:transparent;
+}
+.bwf-btn:hover, .bwf-form button[type="submit"]:hover{ filter:brightness(.98); }
+.bwf-btn-secondary{
+  background:#f3f4f6; color:#111827; border-color:#e5e7eb; min-width:auto; height:40px; padding:0 12px;
+}
+.bwf-btn-secondary:hover{ background:#e5e7eb; }
 
-/* 글자수 헬퍼 */
-.bwf-helper { display:flex; justify-content:flex-end; gap:8px; font-size:12px; color:#64748b; }
-.bwf-helper.ok { color:#16a34a; }
+/* --------- Divider --------- */
+.bwf-form hr{ border:0; border-top:1px solid #eee; margin:8px 0; }
 
-/* 마이페이지 리스트 */
-.bwf-list { list-style:none; padding:0; margin:12px 0; display:flex; flex-direction:column; gap:10px; }
-.bwf-list li { display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
-.bwf-list .bwf-time { color:#64748b; min-width: 170px; }
-.bwf-list .bwf-sum { flex:1; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bwf-list a.button { white-space:nowrap; }
+/* --------- Progress (for 질문 폼) --------- */
+.bwf-sticky{ position:sticky; top:0; background:#fff; z-index:40; padding:12px 0 8px; }
+.bwf-topcount{ display:flex; justify-content:flex-end; margin:0 0 6px; font-size:12px; color:#6b7280; }
+#bwf-progress{ position:relative; height:10px; background:var(--bwf-muted-2); border-radius:999px; overflow:hidden; }
+#bwf-progress .bar{ position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,var(--bwf-accent1),var(--bwf-accent2)); }
+#bwf-progress .label{ position:absolute; top:-22px; right:10px; font-size:12px; color:#64748b; }
 
-/* 버튼 영역 간격 */
-.bwf-actions { margin-top:18px; }
+.bwf-helper{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px; font-size:12px; color:#64748b; }
+.bwf-helper .bwf-counter{ font-variant-numeric:tabular-nums; }
+.bwf-helper.ok{ color:var(--bwf-success); }
+
+/* 질문 폼 카운트/메타 */
+.bwf-count{ margin-top:6px; display:flex; gap:8px; font-size:12px; color:#64748b; }
+.bwf-count .now{ min-width:64px; }
+.bwf-count .need{ color:#334155; }
+
+/* --------- Validation / Error --------- */
+.bwf-invalid, .bwf-form [aria-invalid="true"]{
+  border-color:var(--bwf-danger) !important;
+  box-shadow:0 0 0 3px rgba(239,68,68,.15) !important;
+}
+.bwf-error{ color:var(--bwf-danger); margin-top:4px; width:100%; }
+.bwf-error-text{ color:var(--bwf-danger); margin-bottom:8px; }
+
+/* --------- Modal (client/server error popup) --------- */
+.bwf-modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:10000; }
+.bwf-modal.is-open{ display:flex; }
+.bwf-modal__card{ width:min(440px,92vw); background:#fff; border:1px solid var(--bwf-border); border-radius:16px; padding:18px; }
+.bwf-modal__card h3{ margin:0 0 8px; font-size:18px; }
+.bwf-modal__msg{ color:#475569; margin:0 0 12px; }
+.bwf-modal__actions{ text-align:right; }
+
+/* --------- Lists (my questions, etc.) --------- */
+.bwf-list{ list-style:none; padding:0; margin:12px 0; display:flex; flex-direction:column; gap:10px; }
+.bwf-list li{ display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.bwf-list .bwf-time{ color:#64748b; min-width:170px; }
+.bwf-list .bwf-sum{ flex:1; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Pagination */
+.bwf-pager{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:10px; }
+.bwf-pager .bwf-page{ color:#475569; }
+
+/* --------- View page wrapper (푸터 간섭 방지) --------- */
+.bwf-view{ box-sizing:border-box; max-width:880px; margin:24px auto 56px; padding:0 12px; }
+.bwf-card{ background:#fff; border:1px solid var(--bwf-border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+.bwf-kv{ list-style:none; padding:0; margin:0; }
+.bwf-kv li{ display:flex; gap:12px; padding:6px 0; border-bottom:1px dashed #e5e7eb; }
+.bwf-kv b{ min-width:110px; color:#64748b; }
+.bwf-bullets{ list-style:disc; padding-left:18px; margin:0; }
+
+/* --------- Signup-only tweaks ---------
+   (대표/피드백 회원가입 폼은 .bwf-form.bwf-grid 구조)
+   질문 폼의 진행바는 보여야 하므로, 여기서만 숨긴다.
+--------------------------------------- */
+.bwf-form.bwf-grid .bwf-topcount,
+.bwf-form.bwf-grid #bwf-progress{ display:none !important; }
+
+/* Submit button sizing in signup forms */
+.bwf-form.bwf-grid .bwf-actions{ margin:28px 0 8px; }
+.bwf-form.bwf-grid .bwf-actions button{ width:100%; max-width:440px; height:56px; font-size:18px; border-radius:14px; }
+
+/* Keep neutral button tone for "보기" etc. */
+a.bwf-btn-secondary{ white-space:nowrap; }
+
+/* Small utilities */
+.bwf-hidden{ display:none !important; }
