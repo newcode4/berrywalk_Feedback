@@ -2,13 +2,13 @@
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.4.5
+ * Version: 0.4.6
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.4.5');
+define('BWF_VER', '0.4.6');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -42,9 +42,6 @@ require_once BWF_DIR. '/includes/owner-questions.php'; //대표 질문지 – �
 
 
 
-
-
-
 /** Assets */
 add_action('wp_enqueue_scripts', function () {
   wp_register_style ('bwf-forms',    BWF_URL.'public/css/style.css', [], BWF_VER);
@@ -54,23 +51,21 @@ add_action('wp_enqueue_scripts', function () {
 });
 
 
+// 활성화 시 필요한 페이지 자동 생성
 register_activation_hook(__FILE__, function(){
-  // 보기용 페이지 자동 생성
+  // ① 보기 단건 페이지
   if (!get_page_by_path('my-question-view')){
-    $pid = wp_insert_post([
-      'post_title'   => '내 질문 보기',
-      'post_name'    => 'my-question-view',
-      'post_status'  => 'publish',
-      'post_type'    => 'page',
-      'post_content' => '[bwf_owner_view]'
+    wp_insert_post([
+      'post_title'=>'내 질문 보기','post_name'=>'my-question-view','post_status'=>'publish','post_type'=>'page',
+      'post_content'=>'[bwf_owner_view]'
+    ]);
+  }
+  // ② 내 질문 목록 페이지
+  if (!get_page_by_path('my-questions')){
+    wp_insert_post([
+      'post_title'=>'내 질문 저장본','post_name'=>'my-questions','post_status'=>'publish','post_type'=>'page',
+      'post_content'=>'[bw_my_questions]'
     ]);
   }
   flush_rewrite_rules();
-});
-
-add_action('admin_head-profile.php', function(){
-  echo '<style>
-    h2:has(+ #wpmem_additional_fields), #wpmem_additional_fields { display:none !important; }
-    .wrap .notice-error:has(.wpmem) { display:none !important; }
-  </style>';
 });

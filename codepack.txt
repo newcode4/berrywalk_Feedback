@@ -1,7 +1,7 @@
 ﻿===== META =====
 Repo: https://github.com/newcode4/berrywalk_Feedback.git
-Branch: main  |  Tag: 0.4.4  |  Commit: cf805e9
-Generated: 2025-09-17 13:00:03
+Branch: main  |  Tag: 0.4.5  |  Commit: c51103e
+Generated: 2025-09-17 13:56:25
 
 ===== FILE: pack-code.ps1 (4063 bytes, 113 lines) =====
 `$ext
@@ -119,19 +119,19 @@ foreach ($f in $files) {
 "생성 완료: $(Join-Path $Root $Out)  (총 approx $totalBytes bytes)"
 
 `$nl
-===== FILE: berrywalk-feedback\berrywalk-feedback.php (2997 bytes, 77 lines) =====
+===== FILE: berrywalk-feedback\berrywalk-feedback.php (2746 bytes, 70 lines) =====
 `$ext
 <?php
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.4.4
+ * Version: 0.4.5
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.4.4');
+define('BWF_VER', '0.4.5');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -185,17 +185,10 @@ register_activation_hook(__FILE__, function(){
       'post_name'    => 'my-question-view',
       'post_status'  => 'publish',
       'post_type'    => 'page',
-      'post_content' => '[bw_view_question]'
+      'post_content' => '[bwf_owner_view]'
     ]);
   }
   flush_rewrite_rules();
-});
-
-add_action('admin_head-profile.php', function(){
-  echo '<style>
-    h2:has(+ #wpmem_additional_fields), #wpmem_additional_fields { display:none !important; }
-    .wrap .notice-error:has(.wpmem) { display:none !important; }
-  </style>';
 });
 
 `$nl
@@ -730,128 +723,142 @@ add_action('admin_head', function(){
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\crm.php (4624 bytes, 121 lines) =====
+===== FILE: berrywalk-feedback\includes\crm.php (5786 bytes, 135 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
 
-/** ====== 관리자 메뉴 등록 ====== */
+/** 메뉴 */
 add_action('admin_menu', function(){
-  add_menu_page(
-    '베리워크 CRM',          // page title
-    '베리워크 CRM',          // menu title
-    'manage_options',        // capability
-    'bwf-crm',               // slug
-    'bwf_render_crm_page',   // callback
-    'dashicons-list-view',
-    56
-  );
+  add_menu_page('베리워크 CRM','베리워크 CRM','manage_options','bwf-crm','bwf_render_crm_page','dashicons-list-view',56);
 });
 
-/** 안전하게 전체 피드백 로드 */
+/** 데이터 로더 */
 function bwf_get_all_feedbacks(){
   $all = get_option('bwf_feedbacks', []);
-  if (!is_array($all)) $all = [];
-  return $all;
+  return is_array($all) ? $all : [];
 }
 
-/** ====== CRM 렌더 ====== */
+/** 화면 */
 function bwf_render_crm_page(){
   if (!current_user_can('manage_options')) return;
 
-  // ---- 일괄 삭제 처리 ----
-  if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bwf_crm_bulk'])) {
+  /* 일괄 삭제 */
+  if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['bwf_crm_bulk'])){
     check_admin_referer('bwf_crm_bulk');
     $ids = array_filter((array)($_POST['sel'] ?? []), 'is_string');
-
-    if ($ids) {
+    if ($ids){
       $all = bwf_get_all_feedbacks();
-      // id가 있는 항목만 일괄삭제. 구데이터(id 없음)는 보호(개별삭제에서 처리 예정)
-      $all = array_values(array_filter($all, function($r) use ($ids){
+      $all = array_values(array_filter($all, function($r) use($ids){
         $rid = (string)($r['id'] ?? '');
-        return ($rid === '' || !in_array($rid, $ids, true));
+        return ($rid==='' || !in_array($rid,$ids,true));
       }));
       update_option('bwf_feedbacks', $all, false);
       echo '<div class="updated notice is-dismissible"><p>선택 항목을 삭제했습니다.</p></div>';
     }
   }
 
-  // ---- 데이터/페이지네이션 ----
-  $all   = bwf_get_all_feedbacks();
-  $per   = 20;
-  $total = count($all);
-  $pages = max(1, (int)ceil($total / $per));
-  $paged = max(1, (int)($_GET['paged'] ?? 1));
-  $start = ($paged - 1) * $per;
+  /* 검색 */
+  $keyword = sanitize_text_field($_GET['s'] ?? '');
+  $raw = array_reverse(bwf_get_all_feedbacks());
+  $rowsAll = array_filter($raw, function($r) use($keyword){
+    if ($keyword==='') return true;
+    $u   = get_userdata((int)($r['rep'] ?? 0));
+    $hay = implode(' ', array_filter([
+      $u? $u->display_name : '',
+      $u? $u->user_email   : '',
+      wp_json_encode($r['answers'] ?? [], JSON_UNESCAPED_UNICODE)
+    ]));
+    return mb_stripos($hay, $keyword) !== false;
+  });
 
-  // 최신순으로 보이도록 역순 슬라이스
-  $rows = array_slice(array_reverse($all), $start, $per);
+  /* 페이징 */
+  $per=20; $total=count($rowsAll);
+  $pages=max(1,(int)ceil($total/$per));
+  $paged=max(1,(int)($_GET['paged']??1));
+  $start=($paged-1)*$per;
+  $rows=array_slice($rowsAll,$start,$per);
 
-  // ---- 렌더 ----
   echo '<div class="wrap"><h1>베리워크 CRM</h1>';
 
+  /* 검색폼 */
+  echo '<form method="get" style="margin:8px 0 14px"><input type="hidden" name="page" value="bwf-crm">';
+  echo '<input type="search" name="s" value="'.esc_attr($keyword).'" placeholder="대표명/이메일/내용 검색"> ';
+  echo '<button class="button">검색</button></form>';
+
+  /* 테이블 */
   echo '<form method="post">';
   wp_nonce_field('bwf_crm_bulk');
-  echo '<table class="widefat striped">';
-  echo '<thead><tr>';
+  echo '<table class="widefat striped"><thead><tr>';
   echo '<th style="width:24px"><input type="checkbox" id="bwfChkAll"></th>';
-  echo '<th>시각(서울)</th><th>대표ID</th><th>작성자</th><th>요약</th>';
+  echo '<th>시각(서울)</th><th>대표</th><th>작성자ID</th><th>요약</th><th>동작</th>';
   echo '</tr></thead><tbody>';
 
-  if (!$rows) {
-    echo '<tr><td colspan="5">데이터가 없습니다.</td></tr>';
+  if (!$rows){
+    echo '<tr><td colspan="6">데이터가 없습니다.</td></tr>';
   } else {
-    foreach ($rows as $r) {
-      $rid     = (string)($r['id'] ?? '');
-      $t       = (string)($r['t'] ?? '');           // 저장 시 wp_date 사용
-      $rep     = (int)($r['rep'] ?? 0);
-      $user    = (int)($r['user'] ?? 0);
-      $answers = (array)($r['answers'] ?? []);
+    foreach ($rows as $r){
+      $rid = (string)($r['id'] ?? '');
+      $rep = (int)($r['rep'] ?? 0);
+      $usr = (int)($r['user'] ?? 0);
+      $ans = (array)($r['answers'] ?? []);
 
-      // 요약 만들기(중첩 배열 평탄화)
-      $flat=[]; $stack=[$answers];
-      while ($stack) {
-        $cur=array_pop($stack);
-        foreach ($cur as $v) { is_array($v) ? $stack[]=$v : $flat[]=trim((string)$v); }
-      }
-      $short = mb_substr(implode(' ', array_filter($flat)), 0, 120) . (count($flat)?'…':'');
+      // 요약
+      $flat=[]; $stack=[$ans];
+      while ($stack){ $cur=array_pop($stack); foreach($cur as $v){ is_array($v)?$stack[]=$v:$flat[]=trim((string)$v);} }
+      $short = mb_substr(implode(' ', array_filter($flat)),0,120) . (count($flat)?'…':'');
+
+      // 시간(서울)
+      $ts = isset($r['ts']) ? (int)$r['ts'] : strtotime((string)($r['t'] ?? 'now'));
+      $t_local = function_exists('bwf_fmt') ? bwf_fmt($ts) : wp_date('Y-m-d H:i:s',$ts);
+
+      // 대표명
+      $repname=''; if($rep){ $u=get_userdata($rep); if($u){ $repname=$u->display_name.' ('.$u->user_email.')'; } }
+
+      // 개별 삭제
+      $del = $rid!=='' ? wp_nonce_url(admin_url('admin-post.php?action=bwf_crm_del&id='.$rid),'bwf_crm_del_'.$rid) : '';
 
       echo '<tr>';
-      echo '<td>'.($rid!=='' ? '<input type="checkbox" name="sel[]" value="'.esc_attr($rid).'">' : '').'</td>';
-      echo '<td>'.esc_html($t).'</td>';
-      echo '<td>'.esc_html($rep).'</td>';
-      echo '<td>'.esc_html($user).'</td>';
+      echo '<td>'.($rid!==''?'<input type="checkbox" name="sel[]" value="'.esc_attr($rid).'">':'').'</td>';
+      echo '<td>'.esc_html($t_local).'</td>';
+      echo '<td>'.esc_html($repname).'</td>';
+      echo '<td>'.esc_html($usr).'</td>';
       echo '<td>'.esc_html($short).'</td>';
+      echo '<td>'.($rid!==''?'<a class="button button-small" href="'.$del.'" onclick="return confirm(\'삭제할까요?\')">삭제</a>':'').'</td>';
       echo '</tr>';
     }
   }
-
   echo '</tbody></table>';
-
   echo '<p><button class="button button-secondary" name="bwf_crm_bulk" value="1" onclick="return confirm(\'선택 항목을 삭제할까요?\')">선택 삭제</button></p>';
   echo '</form>';
 
-  // ---- 페이지네이션 ----
-  if ($pages > 1) {
+  /* 페이지네이션 */
+  if ($pages>1){
     $base = remove_query_arg('paged');
     echo '<div class="tablenav"><div class="tablenav-pages">';
-    echo '<span class="displaying-num">총 '.intval($total).'개</span> ';
-    echo '<span class="pagination-links">';
-    if ($paged>1)   echo '<a class="tablenav-pages-navspan" href="'.esc_url(add_query_arg('paged',$paged-1,$base)).'">‹</a> ';
+    echo '<span class="displaying-num">총 '.intval($total).'개</span> <span class="pagination-links">';
+    if ($paged>1) echo '<a class="tablenav-pages-navspan" href="'.esc_url(add_query_arg('paged',$paged-1,$base)).'">‹</a> ';
     echo '<span class="paging-input">'.$paged.' / '.$pages.'</span>';
     if ($paged<$pages) echo ' <a class="tablenav-pages-navspan" href="'.esc_url(add_query_arg('paged',$paged+1,$base)).'">›</a>';
     echo '</span></div></div>';
   }
+  echo '</div>';
 
-  echo '</div>'; // .wrap
-
-  // 체크박스 전체 선택
+  /* 전체선택 스크립트 */
   echo '<script>document.getElementById("bwfChkAll")?.addEventListener("change",e=>{document.querySelectorAll(\'input[name="sel[]"]\').forEach(c=>c.checked=e.target.checked);});</script>';
 }
 
-$ts = isset($r['ts']) ? intval($r['ts']) : strtotime((string)($r['t'] ?? 'now'));
-$t_local = wp_date('Y-m-d H:i:s', $ts);
-echo '<td>'.esc_html($t_local).'</td>';
+/** 개별 삭제 핸들러 */
+add_action('admin_post_bwf_crm_del', function(){
+  if (!current_user_can('manage_options')) wp_die('forbidden');
+  $id = sanitize_text_field($_GET['id'] ?? '');
+  $ok = isset($_GET['_wpnonce']) && wp_verify_nonce($_GET['_wpnonce'], 'bwf_crm_del_'.$id);
+  if (!$ok || !$id){ wp_safe_redirect(admin_url('admin.php?page=bwf-crm')); exit; }
+  $all = bwf_get_all_feedbacks();
+  $all = array_values(array_filter($all, fn($r)=>(string)($r['id']??'')!==$id));
+  update_option('bwf_feedbacks', $all, false);
+  wp_safe_redirect(admin_url('admin.php?page=bwf-crm')); exit;
+});
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\feedback-form.php (6625 bytes, 126 lines) =====
@@ -983,7 +990,7 @@ if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\helper.php (2130 bytes, 51 lines) =====
+===== FILE: berrywalk-feedback\includes\helper.php (2199 bytes, 49 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -996,12 +1003,10 @@ function bwf_industry_options(){
   ];
 }
 
-function bwf_now_str(){               // 문자열(서울)
-  return wp_date('Y-m-d H:i:s');
-}
-function bwf_now_ts(){                // 타임스탬프(정수)
-  return (new DateTime('now', wp_timezone()))->getTimestamp();
-}
+function bwf_tz(){ return new DateTimeZone('Asia/Seoul'); }
+function bwf_now_ts(){ return (new DateTime('now', bwf_tz()))->getTimestamp(); }
+function bwf_now_str(){ return wp_date('Y-m-d H:i:s', null, bwf_tz()); }
+function bwf_fmt($ts,$fmt='Y-m-d H:i:s'){ return wp_date($fmt, $ts, bwf_tz()); }
 
 function bwf_source_options(){
   return [
@@ -1037,7 +1042,7 @@ function bwf_format_phone($digits){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\my-questions.php (3439 bytes, 88 lines) =====
+===== FILE: berrywalk-feedback\includes\my-questions.php (3551 bytes, 90 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -1060,6 +1065,8 @@ add_shortcode('bw_my_questions', function(){
   ]);
 
   ob_start();
+  echo '<style>.bwf-topwrap{display:none!important}</style>';  // 이 페이지에서만 진행현황 숨김
+
   echo '<div class="bwf-form"><h2>내 질문 저장본</h2>';
 
   if (!$q->have_posts()){
@@ -1128,7 +1135,7 @@ add_action('admin_post_bwf_owner_delete', function(){
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\owner-questions.php (21371 bytes, 451 lines) =====
+===== FILE: berrywalk-feedback\includes\owner-questions.php (21038 bytes, 447 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
@@ -1195,9 +1202,6 @@ function bwf_owner_get_config(){
   return $arr;
 }
 
-// (쇼트코드 콜백 시작 부분)
-wp_enqueue_style('bwf-forms');
-wp_enqueue_script('bwf-owner'); // 등록된 feedback.js를 재사용 중이면 이 핸들로
 
 
 /* --------------------------------------------------------------------------
@@ -1225,6 +1229,8 @@ add_shortcode('bwf_owner_view', function($atts){
   if (!$id) return '';
   $post = get_post($id);
   if (!$post || $post->post_type!=='bwf_owner_answer') return '';
+  wp_enqueue_style('bwf-forms');
+
 
   $cfg = bwf_owner_get_config();
   $answers = (array) get_post_meta($id, 'bwf_answers', true);
@@ -1269,11 +1275,14 @@ add_shortcode('bwf_owner_questions', function(){
   $err  = isset($_POST['bwf_q_error']) ? sanitize_text_field($_POST['bwf_q_error']) : '';
   $old  = isset($_POST['q']) ? (array) $_POST['q'] : []; // 검증 실패 후 재표시용
 
+  wp_enqueue_style('bwf-forms');
+  wp_enqueue_script('bwf-owner');
+
   ob_start(); ?>
-  <form class="bwf-form bwf-owner" method="post" id="bwfOwnerForm" novalidate>
-    <input type="hidden" name="bwf_owner_action" value="save">
-    <input type="hidden" name="bwf_owner_nonce" value="<?php echo esc_attr($nonce); ?>">
+  <form id="bwfOwnerForm" method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+    <input type="hidden" name="action" value="bwf_owner_save">
     <input type="hidden" name="bwf_submission" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>">
+    <?php wp_nonce_field('bwf_owner_save','bwf_owner_nonce'); ?>
 
 
     <h2 class="bwf-title"><?php echo esc_html($cfg['title'] ?? '대표님 핵심 질문지'); ?></h2>
@@ -1313,18 +1322,12 @@ add_shortcode('bwf_owner_questions', function(){
           ?>
             <div class="bwf-sub">
               <div style="font-weight:600;margin:8px 0 6px;"><?php echo esc_html($sub['label'] ?? ''); ?><?php if($sreq): ?> <span class="bwf-required">*</span><?php endif; ?></div>
-              <textarea name="q[<?php echo $qid; ?>][<?php echo $sid; ?>]" rows="3" <?php echo $sreq?'required':''; ?> placeholder="<?php echo $pl; ?>"><?php echo esc_textarea($val); ?></textarea>
-              <div class="bwf-helper"><span class="bwf-counter">0</span><?php /* 소문항은 글자수 제한 없음 */ ?></div>
-            </div>
+              <textarea name="q[<?php echo $qid; ?>][<?php echo $sid; ?>]" rows="3" <?php echo $sreq?'required':''; ?> placeholder="<?php echo $pl; ?>"><?php echo esc_textarea($val); ?></textarea>            </div>
           <?php endforeach; ?>
         <?php else:
           $val = isset($old[$qid]) ? (string)$old[$qid] : '';
         ?>
           <textarea name="q[<?php echo $qid; ?>]" rows="5" <?php echo $req?'required':''; ?> minlength="<?php echo intval($ml); ?>" placeholder="내용을 입력하세요."><?php echo esc_textarea($val); ?></textarea>
-          <!-- <div class="bwf-helper">
-            <span class="bwf-guide"><?php echo intval($ml); ?>자 이상</span>
-            <span class="bwf-counter">0 / <?php echo intval($ml); ?>자</span>
-          </div> -->
         <?php endif; ?>
       </div>
     <?php endforeach; ?>
@@ -1363,10 +1366,9 @@ add_shortcode('bwf_owner_questions', function(){
             if (ta) ta.classList.add('bwf-error'); // ← textarea만 빨강, 예시 박스엔 영향 없음
         }
         function isValidTextarea(el){
-            const min = parseInt(el.getAttribute('minlength') || el.dataset.minlength || '0', 10);
             const v = (el.value || '').trim();
-            return (min>0) ? v.length >= min : v.length > 0;
-        }
+            return v.length > 0;
+            }
         function refreshProgress(){
             const units = [...form.querySelectorAll('.bwf-field')];
             let done = 0;
@@ -1430,67 +1432,67 @@ add_shortcode('bwf_owner_questions', function(){
 /* --------------------------------------------------------------------------
    4) 저장 처리: 서버 검증 + 중복제출 방지 + 개별 포스트 생성
 -------------------------------------------------------------------------- */
-add_action('init', function(){
-  if (!isset($_POST['bwf_owner_action']) || $_POST['bwf_owner_action']!=='save') return;
+// add_action('init', function(){
+//   if (!isset($_POST['bwf_owner_action']) || $_POST['bwf_owner_action']!=='save') return;
 
-  if (!is_user_logged_in()) return;
-  if (!wp_verify_nonce($_POST['bwf_owner_nonce'] ?? '', 'bwf_owner_save')) return;
+//   if (!is_user_logged_in()) return;
+//   if (!wp_verify_nonce($_POST['bwf_owner_nonce'] ?? '', 'bwf_owner_save')) return;
 
-  // 중복 제출 락(사용자+nonce 기준, 30초)
-  $uid = get_current_user_id();
-  $nonce = sanitize_text_field($_POST['bwf_owner_nonce']);
-  $lock_key = "bwf_owner_lock_{$uid}_".md5($nonce);
-  if (get_transient($lock_key)) return;
-  set_transient($lock_key, 1, 30);
+//   // 중복 제출 락(사용자+nonce 기준, 30초)
+//   $uid = get_current_user_id();
+//   $nonce = sanitize_text_field($_POST['bwf_owner_nonce']);
+//   $lock_key = "bwf_owner_lock_{$uid}_".md5($nonce);
+//   if (get_transient($lock_key)) return;
+//   set_transient($lock_key, 1, 30);
 
-  $cfg = bwf_owner_get_config();
-  $min = intval($cfg['min_length'] ?? 200);
-  $q   = isset($_POST['q']) ? (array) $_POST['q'] : [];
+//   $cfg = bwf_owner_get_config();
+//   $min = intval($cfg['min_length'] ?? 200);
+//   $q   = isset($_POST['q']) ? (array) $_POST['q'] : [];
 
-  // 서버 검증
-  $errors = [];
-  foreach(($cfg['questions'] ?? []) as $qq){
-    $id = $qq['id']; $type = $qq['type'] ?? 'textarea';
-    $required = !isset($qq['required']) || $qq['required'];
-    if ($type === 'group'){
-      foreach(($qq['sub'] ?? []) as $sub){
-        $sid = $sub['id']; $sreq = !isset($sub['required']) || $sub['required'];
-        $val = trim((string)($q[$id][$sid] ?? ''));
-        if ($sreq && $val===''){ $errors[] = "{$qq['label']} - {$sub['label']}을(를) 입력해 주세요."; }
-      }
-    } else {
-      $val = trim((string)($q[$id] ?? ''));
-      $ml  = intval($qq['minlength'] ?? $min);
-      if ($required && $val===''){ $errors[] = "{$qq['label']}을(를) 입력해 주세요."; }
-      if ($ml > 0 && mb_strlen($val) < $ml){ $errors[] = "{$qq['label']}은(는) 최소 {$ml}자 이상 작성해 주세요."; }
-    }
-  }
+//   // 서버 검증
+//   $errors = [];
+//   foreach(($cfg['questions'] ?? []) as $qq){
+//     $id = $qq['id']; $type = $qq['type'] ?? 'textarea';
+//     $required = !isset($qq['required']) || $qq['required'];
+//     if ($type === 'group'){
+//       foreach(($qq['sub'] ?? []) as $sub){
+//         $sid = $sub['id']; $sreq = !isset($sub['required']) || $sub['required'];
+//         $val = trim((string)($q[$id][$sid] ?? ''));
+//         if ($sreq && $val===''){ $errors[] = "{$qq['label']} - {$sub['label']}을(를) 입력해 주세요."; }
+//       }
+//     } else {
+//       $val = trim((string)($q[$id] ?? ''));
+//       $ml  = intval($qq['minlength'] ?? $min);
+//       if ($required && $val===''){ $errors[] = "{$qq['label']}을(를) 입력해 주세요."; }
+//       if ($ml > 0 && mb_strlen($val) < $ml){ $errors[] = "{$qq['label']}은(는) 최소 {$ml}자 이상 작성해 주세요."; }
+//     }
+//   }
 
-  if (!empty($errors)){
-    $_POST['bwf_q_error'] = implode(' / ', $errors); // 폼에서 모달로 표시
-    return;
-  }
+//   if (!empty($errors)){
+//     $_POST['bwf_q_error'] = implode(' / ', $errors); // 폼에서 모달로 표시
+//     return;
+//   }
 
-  // 저장(항상 새 글 생성 → 기존 글 덮어쓰기/일괄변경 방지)
-  $post_id = wp_insert_post([
-    'post_type'   => 'bwf_owner_answer',
-    'post_title'  => '대표 질문 - '. current_time('Y-m-d H:i:s'),
-    'post_status' => 'publish',
-    'post_date'   => bwf_now_str(),
-    'post_date_gmt' => null,
-    'post_author' => $uid,
-  ], true);
-  if (is_wp_error($post_id)){
-    $_POST['bwf_q_error'] = $post_id->get_error_message();
-    return;
-  }
-  // JSON 그대로 저장
-  update_post_meta($post_id, 'bwf_answers', bwf_sanitize_deep($q));
+//   // 저장(항상 새 글 생성 → 기존 글 덮어쓰기/일괄변경 방지)
+//   $post_id = wp_insert_post([
+//     'post_type'   => 'bwf_owner_answer',
+//     'post_title'  => '대표 질문 - '. current_time('Y-m-d H:i:s'),
+//     'post_status' => 'publish',
+//     'post_date'   => bwf_now_str(),
+//     'post_date_gmt' => null,
+//     'post_author' => $uid,
+//   ], true);
+//   if (is_wp_error($post_id)){
+//     $_POST['bwf_q_error'] = $post_id->get_error_message();
+//     return;
+//   }
+//   // JSON 그대로 저장
+//   update_post_meta($post_id, 'bwf_answers', bwf_sanitize_deep($q));
 
-  // 완료 → 리다이렉트
-  wp_redirect(BWF_OWNER_AFTER_SAVE_URL);
-  exit;
-});
+//   // 완료 → 리다이렉트
+//   wp_redirect(BWF_OWNER_AFTER_SAVE_URL);
+//   exit;
+// });
 
 /* 배열 value 전체 sanitize */
 function bwf_sanitize_deep($val){
@@ -1498,88 +1500,89 @@ function bwf_sanitize_deep($val){
   return sanitize_textarea_field((string)$val);
 }
 
-add_action('template_redirect', function(){
-  if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-  if (($_POST['bwf_owner_action'] ?? '') !== 'save') return;
 
-  if (!is_user_logged_in()) {
-    wp_safe_redirect( home_url('/login/') ); exit;
+// ── 1) 서울 타임존 유틸 (없으면 추가)
+
+
+// ── 2) 저장 핸들러 (표준 endpoint: admin-post.php?action=bwf_owner_save)
+function bwf_owner_handle_save(){
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
+
+  if (!is_user_logged_in()){
+    wp_safe_redirect( wp_login_url( wp_get_referer() ?: home_url('/') ) ); exit;
   }
 
-  $uid   = get_current_user_id();
+  // nonce 검증
   $nonce = $_POST['bwf_owner_nonce'] ?? '';
-  if (!wp_verify_nonce($nonce, 'bwf_owner_save')) {
+  if (!wp_verify_nonce($nonce, 'bwf_owner_save')){
     wp_safe_redirect( add_query_arg('err','nonce', wp_get_referer() ?: home_url('/') ) ); exit;
   }
 
-  // 2중 저장 방지: (유저ID+제출토큰)로 5분 락
-  $sub  = sanitize_text_field($_POST['bwf_submission'] ?? '');
+  $uid = get_current_user_id();
+  $sub = sanitize_text_field($_POST['bwf_submission'] ?? '');
+  if (!$sub){
+    wp_safe_redirect( add_query_arg('err','submission', wp_get_referer() ?: home_url('/') ) ); exit;
+  }
+
+  // 2중 저장 방지
   $lock = "bwf_owner_lock_{$uid}_{$sub}";
-  if (empty($sub) || get_transient($lock)) {
+  if (get_transient($lock)){
     wp_safe_redirect( add_query_arg('err','dup', wp_get_referer() ?: home_url('/') ) ); exit;
   }
   set_transient($lock, 1, 5*MINUTE_IN_SECONDS);
 
-  // 검증
-  $cfg   = bwf_owner_get_config();
-  $min   = intval($cfg['min_length'] ?? 200);
-  $qs    = (array)($cfg['questions'] ?? []);
-  $in    = (array)($_POST['q'] ?? []);
-  $errs  = [];
-  $clean = [];
+  // 폼 값
+  $answers = (array)($_POST['q'] ?? []);
 
-  foreach ($qs as $q) {
+  // (선택) 서버 검증: 최소 글자/필수
+  $cfg = function_exists('bwf_owner_get_config') ? bwf_owner_get_config() : ['min_length'=>50,'questions'=>[]];
+  $min = (int)($cfg['min_length'] ?? 50);
+  $errs = [];
+  foreach ((array)$cfg['questions'] as $q){
     $id   = $q['id'] ?? '';
     $type = $q['type'] ?? 'textarea';
     $req  = !isset($q['required']) || $q['required'];
-    $ml   = isset($q['minlength']) && $q['minlength'] !== '' ? intval($q['minlength']) : $min;
+    $ml   = isset($q['minlength']) && $q['minlength'] !== '' ? (int)$q['minlength'] : $min;
 
-    if ($type === 'group') {
-      $subs = (array)($q['sub'] ?? []);
-      $clean[$id] = [];
-      foreach ($subs as $s) {
-        $sid  = $s['id'] ?? ''; if (!$sid) continue;
+    if ($type === 'group'){
+      foreach ((array)($q['sub'] ?? []) as $s){
+        $sid  = $s['id'] ?? '';
         $sreq = !isset($s['required']) || $s['required'];
-        $val  = trim((string)($in[$id][$sid] ?? ''));
-        $clean[$id][$sid] = sanitize_textarea_field($val);
-        if ($sreq && $val === '') {
-          $errs[] = "{$q['label']} - {$s['label']} 입력 필요";
-        }
+        $v    = trim((string)($answers[$id][$sid] ?? ''));
+        if ($sreq && $v==='') $errs[]="$id/$sid";
       }
-    } else {
-      $val = trim((string)($in[$id] ?? ''));
-      $clean[$id] = sanitize_textarea_field($val);
-      if ($req) {
-        if ($val === '') { $errs[] = "{$q['label']} 입력 필요"; }
-        elseif (mb_strlen($val) < $ml) { $errs[] = "{$q['label']} 최소 {$ml}자 이상"; }
-      }
+    }else{
+      $v = trim((string)($answers[$id] ?? ''));
+      if ($req && ($v==='' || mb_strlen($v) < $ml)) $errs[]=$id;
     }
   }
-
-  if ($errs) {
-    // 폼 재표시를 위해 POST 값 유지
-    $_POST['bwf_q_error'] = implode(' / ', $errs);
-    return; // shortcode가 같은 요청 내에서 에러를 표시
+  if ($errs){
+    wp_safe_redirect( add_query_arg('err','validation', wp_get_referer() ?: home_url('/') ) ); exit;
   }
 
-  // 저장: CPT 단건
-  $title   = '대표 질문 ' . wp_date('Y-m-d H:i:s'); // 서울시간
-  $post_id = wp_insert_post([
+  // CPT 저장(개별 레코드)
+  $pid = wp_insert_post([
     'post_type'    => 'bwf_owner_answer',
-    'post_title'   => $title,
     'post_status'  => 'publish',
     'post_author'  => $uid,
+    'post_title'   => '대표 질문 ' . bwf_now_str(),
+    'post_date'    => bwf_now_str(),
+    'post_date_gmt'=> null,
+    'meta_input'   => [
+      'bwf_answers'    => $answers,
+      'bwf_submission' => $sub,
+      'bwf_saved_at'   => bwf_now_str(),
+    ],
   ], true);
 
-  if (!is_wp_error($post_id)) {
-    update_post_meta($post_id, 'bwf_answers', $clean);
-    update_post_meta($post_id, 'bwf_submission', $sub);
-    wp_safe_redirect( add_query_arg(['saved'=>1,'id'=>$post_id], BWF_OWNER_AFTER_SAVE_URL) ); exit;
+  $dest = home_url('/my-questions/'); // 마이페이지 목록 슬러그
+  if (is_wp_error($pid)){
+    wp_safe_redirect( add_query_arg('err','save', $dest) ); exit;
   }
-
-  wp_safe_redirect( add_query_arg('err','save', wp_get_referer() ?: home_url('/') ) ); exit;
-});
-
+  wp_safe_redirect( add_query_arg(['saved'=>1,'id'=>$pid], $dest) ); exit;
+}
+add_action('admin_post_bwf_owner_save', 'bwf_owner_handle_save');
+add_action('admin_post_nopriv_bwf_owner_save', 'bwf_owner_handle_save');
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\questions-admin.php (3744 bytes, 95 lines) =====
@@ -10226,7 +10229,7 @@ if ( !trait_exists(VcsCheckerMethods::class, false) ) :
 
 endif;
 `$nl
-===== FILE: berrywalk-feedback\public\css\style.css (20276 bytes, 335 lines) =====
+===== FILE: berrywalk-feedback\public\css\style.css (20714 bytes, 345 lines) =====
 `$ext
 /* =======================================================================================
    Berrywalk Feedback - Global Form Styles  (네임스페이스: .bwf-*)
@@ -10562,6 +10565,16 @@ a.bwf-btn-secondary{ white-space:nowrap; }
 .bwf-actions{margin-top:20px}
 .bwf-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3)}
 .bwf-modal__card{max-width:420px;margin:10vh auto;background:#fff;padding:20px;border-radius:12px}
+
+/* 폼 내 안내/카운터 영역 전체 숨김 */
+.bwf-owner .bwf-helper,
+.bwf-owner .bwf-min-note { display:none !important; }
+
+/* 에러는 textarea만 빨갛게 */
+.bwf-owner .bwf-field.bwf-error textarea{ border:2px solid #ef4444 !important; outline:0; }
+
+.bwf-owner #bwf-progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+.bwf-owner #bwf-progress .bar{height:100%;width:0;transition:width .2s}
 
 `$nl
 ===== FILE: berrywalk-feedback\public\js\feedback.js (10996 bytes, 290 lines) =====
