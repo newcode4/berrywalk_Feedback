@@ -3,20 +3,30 @@ if (!defined('ABSPATH')) exit;
 
 /**
  * Berrywalk Feedback - Signup Shortcodes (대표 / 피드백자)
- * 요구사항 반영:
- * - "*표시는 필수 입력" 상단 고정
- * - 타이틀 중앙 정렬
- * - 휴대폰 자동 하이픈(010-1234-5678) + 패턴검증
- * - 필수 누락 시 '팝업 모달' 노출 + 빨간 테두리 + 해당 필드로 스크롤/포커스
- * - 서버측 에러 발생 시에도 모달로 노출
- * - 소셜 링크 섹션 유지
+ * 변경 핵심
+ * - 대표 회원가입 시 role 슬러그를 'bw_owner' 로 강제(하위호환: 'representative'도 허용)
+ * - 가입 직후에도 set_role('bw_owner')로 확정
+ * - user meta 'bw_owner' 플래그 저장(기본 'Y' — 필요하면 하단 상수로 변경)
+ * - "*표시는 필수 입력" 상단 고정, 타이틀 중앙, 휴대폰 자동 하이픈 + 패턴검증, 필수 누락 팝업/하이라이트
  */
 
 require_once __DIR__ . '/helper.php';
 
-/* -------------------------------
-   공통 유틸 (모달 에러 출력 스크립트)
--------------------------------- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   역할 보장: bw_owner 역할이 없으면 생성 (권한: read 만)
+   ───────────────────────────────────────────────────────────────────────────── */
+add_action('init', function(){
+  if (!get_role('bw_owner')) {
+    add_role('bw_owner', '대표', ['read' => true]);
+  }
+});
+
+/* 메타 플래그 기본값 (원하면 바꿔도 됨) */
+if (!defined('BWF_BW_OWNER_META_VALUE')) {
+  define('BWF_BW_OWNER_META_VALUE', 'Y');
+}
+
+/* 공통 모달 에러 출력 스크립트 */
 function bwf_print_modal_error_script($msg){
   $m = esc_js($msg);
   echo "<script>
@@ -35,9 +45,9 @@ function bwf_print_modal_error_script($msg){
   </script>";
 }
 
-/* -------------------------------
-   대표 회원가입
--------------------------------- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   대표 회원가입 (역할: bw_owner 고정)
+   ───────────────────────────────────────────────────────────────────────────── */
 add_shortcode('bwf_signup_representative', function () {
   wp_enqueue_style('bwf-forms');
 
@@ -47,12 +57,13 @@ add_shortcode('bwf_signup_representative', function () {
             <p class="bwf-actions"><a class="bwf-btn" href="'.esc_url(home_url('/owner-questions/')).'">질문 등록하기</a></p></div>';
   }
 
-  $nonce = wp_create_nonce('bwf_signup_rep');
+  $nonce = wp_create_nonce('bwf_signup_rep'); // 기존 nonce 재사용
   $S = function($k,$d=''){ return isset($_POST[$k]) ? esc_attr($_POST[$k]) : $d; };
 
   ob_start(); ?>
   <form method="post" class="bwf-form bwf-grid" novalidate id="bwf-signup-rep">
-    <input type="hidden" name="bwf_role" value="representative">
+    <!-- 역할을 bw_owner로 고정 -->
+    <input type="hidden" name="bwf_role" value="bw_owner">
     <input type="hidden" name="bwf_nonce" value="<?php echo esc_attr($nonce); ?>">
 
     <h2 class="bwf-title bwf-col-full">대표 회원가입</h2>
@@ -159,14 +170,13 @@ add_shortcode('bwf_signup_representative', function () {
       const modal = f.querySelector('#bwf-modal');
       const okBtn = f.querySelector('#bwf-modal-ok');
 
-      /* 기타 경로 토글 */
       function toggleEtc(){
         etc.style.display = (src && src.value === 'etc') ? 'block' : 'none';
         if (src && src.value !== 'etc') etc.value = '';
       }
       if (src){ src.addEventListener('change', toggleEtc); toggleEtc(); }
 
-      /* 휴대폰 자동 하이픈 (010만 허용) */
+      /* 휴대폰 자동 하이픈 */
       function formatPhone(v){
         const d = String(v||'').replace(/\D/g,'').slice(0,11);
         if (d.startsWith('010')) {
@@ -178,15 +188,13 @@ add_shortcode('bwf_signup_representative', function () {
       }
       if (tel){
         tel.addEventListener('input', ()=>{
-          const pos = tel.selectionStart;
           const before = tel.value;
           tel.value = formatPhone(before);
-          // caret to end (단순화)
           tel.setSelectionRange(tel.value.length, tel.value.length);
         });
       }
 
-      /* 모달 핸들러 */
+      /* 모달 */
       function openModal(msg){
         modal.querySelector('.bwf-modal__msg').textContent = msg || '필수 항목을 확인해 주세요.';
         modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
@@ -194,14 +202,14 @@ add_shortcode('bwf_signup_representative', function () {
       function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
       okBtn.addEventListener('click', closeModal);
 
-      /* 제출 전 클라이언트 검증: 팝업 + 빨간 테두리 + 스크롤 */
+      /* 제출 전 클라이언트 검증 */
       f.addEventListener('submit', function(ev){
         const req = Array.from(f.querySelectorAll('[required]'));
         let firstInvalid = null;
 
         req.forEach(el=>{
           el.classList.remove('bwf-invalid');
-          // 전화번호 강제 패턴
+          // 전화번호 패턴 강제
           if (el.name==='bw_phone' && !/^010-\d{4}-\d{4}$/.test(el.value)) {
             el.setCustomValidity('휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.');
           } else {
@@ -224,16 +232,15 @@ add_shortcode('bwf_signup_representative', function () {
     </script>
   </form>
   <?php
-    // 서버 측 에러가 있었다면 모달로 띄움
     if (!empty($_POST['bwf_error'])) {
       bwf_print_modal_error_script($_POST['bwf_error']);
     }
     return ob_get_clean();
 });
 
-/* -------------------------------
+/* ─────────────────────────────────────────────────────────────────────────────
    피드백자 회원가입 (간단)
--------------------------------- */
+   ───────────────────────────────────────────────────────────────────────────── */
 add_shortcode('bwf_signup_feedback', function () {
   wp_enqueue_style('bwf-forms');
 
@@ -367,16 +374,19 @@ add_shortcode('bwf_signup_feedback', function () {
     return ob_get_clean();
 });
 
-/* -------------------------------
-   서버 사이드 처리 (공통)
--------------------------------- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   서버 사이드 처리 (대표/피드백 공통)
+   ───────────────────────────────────────────────────────────────────────────── */
 add_action('init', function(){
   if (!isset($_POST['bwf_register'])) return;
 
   $role  = sanitize_text_field($_POST['bwf_role'] ?? '');
   $nonce = sanitize_text_field($_POST['bwf_nonce'] ?? '');
 
-  if ($role === 'representative' && !wp_verify_nonce($nonce,'bwf_signup_rep')) return;
+  // 대표(신규: bw_owner / 구버전: representative) 둘 다 허용
+  $is_owner = in_array($role, ['bw_owner', 'representative'], true);
+
+  if ($is_owner && !wp_verify_nonce($nonce,'bwf_signup_rep')) return;
   if ($role === 'feedback_provider' && !wp_verify_nonce($nonce,'bwf_signup_fb')) return;
 
   // 공통 필드
@@ -391,7 +401,7 @@ add_action('init', function(){
   if (!$err && username_exists($user_login)) $err = '이미 사용 중인 아이디입니다.';
   if (!$err && email_exists($user_email))    $err = '이미 등록된 이메일입니다.';
 
-  if ($role === 'representative') {
+  if ($is_owner) {
     foreach (['bw_company_name','bw_industry','bw_employees','bw_contact_window','bw_discover','bw_phone'] as $k) {
       if (empty($_POST[$k])) { $err = '필수 항목이 누락되었습니다.'; break; }
     }
@@ -412,13 +422,14 @@ add_action('init', function(){
 
   if ($err) { $_POST['bwf_error'] = $err; return; }
 
-  // 계정 생성
+  // 계정 생성 (대표는 role 필드가 뭐로 오든 최종적으로 'bw_owner'로 세팅)
+  $target_role = $is_owner ? 'bw_owner' : 'feedback_provider';
   $uid = wp_insert_user([
     'user_login' => $user_login,
     'user_email' => $user_email,
     'user_pass'  => $user_pass,
     'first_name' => $first_name,
-    'role'       => $role,
+    'role'       => $target_role,
     'user_url'   => esc_url_raw($_POST['user_url'] ?? '')
   ]);
   if (is_wp_error($uid)) { $_POST['bwf_error'] = $uid->get_error_message(); return; }
@@ -427,8 +438,13 @@ add_action('init', function(){
   wp_set_current_user($uid);
   wp_set_auth_cookie($uid);
 
-  // 메타 저장
-  if ($role === 'representative') {
+  // 대표 역할 확정 + 메타 플래그
+  if ($is_owner) {
+    $u = new WP_User($uid);
+    $u->set_role('bw_owner'); // 최종 보정
+
+    update_user_meta($uid, 'bw_owner', BWF_BW_OWNER_META_VALUE); // 플래그 저장
+
     $meta_keys = ['bw_company_name','bw_industry','bw_employees','bw_contact_window','bw_discover','bw_phone'];
     foreach($meta_keys as $k){
       if(isset($_POST[$k])) update_user_meta($uid,$k,sanitize_text_field($_POST[$k]));
@@ -440,7 +456,7 @@ add_action('init', function(){
     foreach (bwf_social_fields() as $k=>$label) {
       if(isset($_POST[$k]) && $_POST[$k]!== '') update_user_meta($uid,$k,esc_url_raw($_POST[$k]));
     }
-  } else {
+  } else { // 피드백자
     foreach (['age_range','gender','experience','source'] as $k){
       if(isset($_POST[$k])) update_user_meta($uid,$k,sanitize_text_field($_POST[$k]));
     }
@@ -450,6 +466,6 @@ add_action('init', function(){
   }
 
   // 성공 리디렉트
-  $dest = ($role==='representative') ? home_url('/info-feedback/?join=ok') : home_url('/?join=ok');
+  $dest = $is_owner ? home_url('/info-feedback/?join=ok') : home_url('/?join=ok');
   wp_redirect($dest); exit;
 });
