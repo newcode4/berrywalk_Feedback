@@ -2,34 +2,54 @@
 if (!defined('ABSPATH')) exit;
 
 /**
- * 대표님 핵심 질문지 (관리자 설정 기반)
- * 저장 키: problem, value, ideal_customer, q1, q2, q3, competitors
- * one_question 제거됨
+ * 대표님 핵심 질문지 – 빌더(JSON) 기반 동적 폼
+ * 저장 구조: 사용자 메타 bwf_questions (연결 키는 질문 id)
+ *   - 단일문항: answers[id] = string
+ *   - 그룹문항: answers[id][subId] = string
  */
+
+function bwf_owner_builder_get(){
+  $raw = get_option('bwf_owner_builder_json');
+  if(!$raw) $raw = function_exists('bwf_owner_builder_default_json') ? bwf_owner_builder_default_json() : '';
+  $cfg = json_decode($raw, true);
+  if (!is_array($cfg) || empty($cfg['questions'])) {
+    // 안전망
+    $cfg = json_decode(bwf_owner_builder_default_json(), true);
+  }
+  return $cfg;
+}
 
 add_shortcode('bw_owner_form', function(){
   if (!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
 
-  $cfg = get_option('bwf_owner_config', function_exists('bwf_owner_default_config') ? bwf_owner_default_config() : []);
-  $min = intval($cfg['min_length'] ?? 200);
+  $cfg   = bwf_owner_builder_get();
   $title = $cfg['title'] ?? '대표님 핵심 질문지';
-  $intro = str_replace('{MIN}', $min, $cfg['intro'] ?? '');
+  $intro = str_replace('{MIN}', intval($cfg['min_length'] ?? 200), $cfg['intro_html'] ?? '');
+  $globalMin = intval($cfg['min_length'] ?? 200);
 
   $uid   = get_current_user_id();
-  $saved = get_user_meta($uid,'bwf_questions', true) ?: [];
-  $S = function($k){ return isset($_POST[$k]) ? wp_unslash($_POST[$k]) : ($saved[$k] ?? ''); };
+  $saved = get_user_meta($uid, 'bwf_questions', true);
+  if (!is_array($saved)) $saved = [];
 
+  // 저장
   if (isset($_POST['bwf_save_questions']) && isset($_POST['bwf_nonce']) && wp_verify_nonce($_POST['bwf_nonce'],'bwf_owner_form')) {
-    $data = [
-      'problem'        => sanitize_textarea_field($_POST['problem'] ?? ''),
-      'value'          => sanitize_textarea_field($_POST['value'] ?? ''),
-      'ideal_customer' => sanitize_textarea_field($_POST['ideal_customer'] ?? ''),
-      'q1'             => sanitize_textarea_field($_POST['q1'] ?? ''),
-      'q2'             => sanitize_textarea_field($_POST['q2'] ?? ''),
-      'q3'             => sanitize_textarea_field($_POST['q3'] ?? ''),
-      'competitors'    => sanitize_textarea_field($_POST['competitors'] ?? ''),
-      '_saved_at'      => current_time('mysql'),
-      '_id'            => $saved['_id'] ?? uniqid('q_', true),
+    $answers = [];
+    foreach(($cfg['questions'] ?? []) as $q){
+      $qid = $q['id'];
+      if ($q['type']==='group'){
+        $subAns = [];
+        foreach(($q['sub'] ?? []) as $s){
+          $sid = $s['id'];
+          $subAns[$sid] = sanitize_textarea_field($_POST["{$qid}__{$sid}"] ?? '');
+        }
+        $answers[$qid] = $subAns;
+      } else {
+        $answers[$qid] = sanitize_textarea_field($_POST[$qid] ?? '');
+      }
+    }
+    $data = $answers + [
+      '_saved_at'=> current_time('mysql'),
+      '_id'      => $saved['_id'] ?? uniqid('q_', true),
     ];
     update_user_meta($uid,'bwf_questions',$data);
 
@@ -39,16 +59,12 @@ add_shortcode('bw_owner_form', function(){
 
   wp_enqueue_style('bwf-forms');
 
-  $Q = [
-    'problem' => $cfg['q_problem'] ?? [],
-    'value'   => $cfg['q_value'] ?? [],
-    'ideal'   => $cfg['q_ideal'] ?? [],
-    'ask3'    => $cfg['q_ask3'] ?? [],
-    'compet'  => $cfg['q_competitors'] ?? [],
-  ];
+  // 진행률 총합
+  $totalUnits = 0;
+  foreach(($cfg['questions'] ?? []) as $q){ $totalUnits += intval($q['count_as'] ?? 1); }
 
   ob_start(); ?>
-  <form method="post" class="bwf-form bwf-owner" novalidate>
+  <form method="post" class="bwf-form bwf-owner" novalidate id="bwf-owner-form">
     <?php wp_nonce_field('bwf_owner_form','bwf_nonce'); ?>
 
     <h2 class="bwf-title"><?php echo esc_html($title); ?></h2>
@@ -56,64 +72,52 @@ add_shortcode('bw_owner_form', function(){
 
     <!-- 진행 현황 -->
     <div class="bwf-topwrap">
-      <div class="bwf-top-title">작성 <span class="done">0</span>/<span class="total">5</span>문항</div>
+      <div class="bwf-top-title">작성 <span class="done">0</span>/<span class="total"><?php echo intval($totalUnits); ?></span>문항</div>
       <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
     </div>
 
-    <!-- 1 -->
-    <div class="bwf-field">
-      <label><?php echo esc_html($Q['problem']['label'] ?? '1. 질문'); ?> <span class="bwf-required">*</span></label>
-      <?php if(!empty($Q['problem']['desc'])) echo '<p class="bwf-desc">'.wp_kses_post($Q['problem']['desc']).'</p>'; ?>
-      <?php if(!empty($Q['problem']['examples'])) echo '<div class="bwf-examples">'.wp_kses_post($Q['problem']['examples']).'</div>'; ?>
-      <textarea name="problem" required data-minlength="<?php echo $min; ?>"><?php echo esc_textarea($S('problem')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span> / <?php echo $min; ?>자</div>
-    </div>
+    <?php foreach(($cfg['questions'] ?? []) as $q): ?>
+      <?php
+        $qid  = $q['id'];
+        $type = $q['type'];
+        $label= $q['label'] ?? '';
+        $desc = $q['desc_html'] ?? '';
+        $ex   = $q['examples_html'] ?? '';
+        $req  = ($q['required']!==false);
+        $min  = ($q['minlength'] === '' || $q['minlength'] === null) ? ($type==='group'?0:$globalMin) : intval($q['minlength']);
+      ?>
+      <div class="bwf-field bwf-q" data-qid="<?php echo esc_attr($qid); ?>" data-type="<?php echo esc_attr($type); ?>" data-count="<?php echo intval($q['count_as']??1); ?>">
+        <?php if($type!=='group'): ?>
+          <label><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></label>
+          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
+          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
 
-    <!-- 2 -->
-    <div class="bwf-field">
-      <label><?php echo esc_html($Q['value']['label'] ?? '2. 질문'); ?> <span class="bwf-required">*</span></label>
-      <?php if(!empty($Q['value']['desc'])) echo '<p class="bwf-desc">'.wp_kses_post($Q['value']['desc']).'</p>'; ?>
-      <?php if(!empty($Q['value']['examples'])) echo '<div class="bwf-examples">'.wp_kses_post($Q['value']['examples']).'</div>'; ?>
-      <textarea name="value" required data-minlength="<?php echo $min; ?>"><?php echo esc_textarea($S('value')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span> / <?php echo $min; ?>자</div>
-    </div>
+          <?php if($type==='text'): ?>
+            <input type="text" name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?> value="<?php echo isset($saved[$qid])?esc_attr($saved[$qid]):''; ?>">
+          <?php else: // textarea ?>
+            <textarea name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?>><?php echo isset($saved[$qid])?esc_textarea($saved[$qid]):''; ?></textarea>
+          <?php endif; ?>
 
-    <!-- 3 -->
-    <div class="bwf-field">
-      <label><?php echo esc_html($Q['ideal']['label'] ?? '3. 질문'); ?> <span class="bwf-required">*</span></label>
-      <?php if(!empty($Q['ideal']['desc'])) echo '<p class="bwf-desc">'.wp_kses_post($Q['ideal']['desc']).'</p>'; ?>
-      <?php if(!empty($Q['ideal']['examples'])) echo '<div class="bwf-examples">'.wp_kses_post($Q['ideal']['examples']).'</div>'; ?>
-      <textarea name="ideal_customer" required data-minlength="<?php echo $min; ?>"><?php echo esc_textarea($S('ideal_customer')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span> / <?php echo $min; ?>자</div>
-    </div>
+          <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $min>0?' / '.$min.'자':''; ?></div>
 
-    <!-- 4: ask3 -->
-    <div class="bwf-field">
-      <h3 class="bwf-h3"><?php echo esc_html($Q['ask3']['label'] ?? '4. 고객에게 물어볼 3가지'); ?></h3>
-      <?php if(!empty($Q['ask3']['desc'])) echo '<p class="bwf-desc">'.wp_kses_post($Q['ask3']['desc']).'</p>'; ?>
-      <?php if(!empty($Q['ask3']['examples'])) echo '<div class="bwf-examples">'.wp_kses_post($Q['ask3']['examples']).'</div>'; ?>
+        <?php else: // group ?>
+          <h3 class="bwf-h3"><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></h3>
+          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
+          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
 
-      <label>질문 1 <span class="bwf-required">*</span></label>
-      <textarea name="q1" data-group="ask3" required rows="4" placeholder="예: 우리 서비스를 알게 된 경로는 무엇이었나요?"><?php echo esc_textarea($S('q1')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span></div>
-
-      <label>질문 2 <span class="bwf-required">*</span></label>
-      <textarea name="q2" data-group="ask3" required rows="4" placeholder="예: 결심 포인트는 무엇이었나요?"><?php echo esc_textarea($S('q2')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span></div>
-
-      <label>질문 3 <span class="bwf-required">*</span></label>
-      <textarea name="q3" data-group="ask3" required rows="4" placeholder="예: 사용 중 가장 불편했던 점은?"><?php echo esc_textarea($S('q3')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span></div>
-    </div>
-
-    <!-- 5 -->
-    <div class="bwf-field">
-      <label><?php echo esc_html($Q['compet']['label'] ?? '5. 질문'); ?> <span class="bwf-required">*</span></label>
-      <?php if(!empty($Q['compet']['desc'])) echo '<p class="bwf-desc">'.wp_kses_post($Q['compet']['desc']).'</p>'; ?>
-      <?php if(!empty($Q['compet']['examples'])) echo '<div class="bwf-examples">'.wp_kses_post($Q['compet']['examples']).'</div>'; ?>
-      <textarea name="competitors" required data-minlength="<?php echo $min; ?>" rows="4"><?php echo esc_textarea($S('competitors')); ?></textarea>
-      <div class="bwf-helper"><span class="bwf-counter">0</span> / <?php echo $min; ?>자</div>
-    </div>
+          <?php foreach(($q['sub'] ?? []) as $s): 
+            $sid = $s['id']; $slab = $s['label'] ?? ''; $ph = $s['placeholder'] ?? '';
+            $sreq = ($s['required']!==false); $smin = intval($s['minlength'] ?? 0);
+            $name = "{$qid}__{$sid}";
+            $val  = (isset($saved[$qid]) && is_array($saved[$qid]) && isset($saved[$qid][$sid])) ? $saved[$qid][$sid] : '';
+          ?>
+            <label><?php echo esc_html($slab); ?> <?php if($sreq): ?><span class="bwf-required">*</span><?php endif; ?></label>
+            <textarea name="<?php echo esc_attr($name); ?>" rows="4" placeholder="<?php echo esc_attr($ph); ?>" <?php echo $sreq?'required':''; ?> <?php echo $smin>0?'data-minlength="'.$smin.'"':''; ?>><?php echo esc_textarea($val); ?></textarea>
+            <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $smin>0?' / '.$smin.'자':''; ?></div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
 
     <div class="bwf-actions">
       <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
@@ -121,59 +125,62 @@ add_shortcode('bw_owner_form', function(){
 
     <script>
     (function(){
-      const f = document.currentScript.closest('form');
-      const min = <?php echo $min; ?>;
-
-      // 진행 카운트: 개별 4(문항1,2,3,5) + ask3 그룹 1
-      const total = 5;
-      const doneEl = f.querySelector('.bwf-topwrap .done');
-      const totEl  = f.querySelector('.bwf-topwrap .total');
+      const f = document.getElementById('bwf-owner-form');
+      const total = Array.from(f.querySelectorAll('.bwf-q')).reduce((n,q)=> n + (parseInt(q.dataset.count||'1',10)||1), 0);
+      f.querySelector('.total').textContent = total;
+      const doneEl = f.querySelector('.done');
       const bar    = f.querySelector('#bwf-progress .bar');
       const label  = f.querySelector('#bwf-progress .label');
-      totEl.textContent = total;
 
-      const individual = ['problem','value','ideal_customer','competitors'].map(n=>f.querySelector('[name="'+n+'"]'));
-      const ask3 = ['q1','q2','q3'].map(n=>f.querySelector('[name="'+n+'"]'));
-
-      function setCounter(el, minlen){
+      function setCounter(el, min){
         const helper = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper') ? el.nextElementSibling : null;
         const len = (el.value||'').trim().length;
-        if(helper){
-          const c = helper.querySelector('.bwf-counter');
-          if (c) c.textContent = String(len);
-          helper.classList.toggle('ok', minlen ? len>=minlen : !!len);
+        if (helper){
+          const c = helper.querySelector('.bwf-counter'); if(c) c.textContent = String(len);
+          helper.classList.toggle('ok', min ? len>=min : !!len);
         }
-        if (minlen){
-          el.setCustomValidity(len>=minlen ? '' : (minlen + '자 이상 입력해주세요'));
+        if (min){
+          el.setCustomValidity(len>=min ? '' : (min+'자 이상 입력해주세요'));
         } else {
-          el.setCustomValidity(len>0 ? '' : '필수 입력입니다.');
+          if (el.required) el.setCustomValidity(len>0 ? '' : '필수 입력입니다.');
         }
       }
 
-      function calcDone(){
-        let ok = 0;
-        individual.forEach(el => { if(!el) return; const len=(el.value||'').trim().length; if(len>=min) ok++; });
-        const aok = ask3.every(el => (el.value||'').trim().length>0);
-        if (aok) ok++;
-        return ok;
+      function isQuestionDone(q){
+        const fields = q.querySelectorAll('textarea, input[type="text"]');
+        let allOk = true;
+        fields.forEach(el=>{
+          const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+          const len = (el.value||'').trim().length;
+          const req = el.hasAttribute('required');
+          if (min>0){ if(len<min) allOk=false; }
+          else if (req){ if(len===0) allOk=false; }
+        });
+        return allOk;
       }
 
       function render(){
-        const done = calcDone();
+        let done = 0;
+        const qs = Array.from(f.querySelectorAll('.bwf-q'));
+        qs.forEach(q=>{
+          if (isQuestionDone(q)) done += (parseInt(q.dataset.count||'1',10)||1);
+        });
         const pct = Math.round(done/total*100);
         doneEl.textContent = done;
         bar.style.width = pct+'%';
         label.textContent = pct+'%';
       }
 
-      [...individual, ...ask3].forEach(el=>{
-        if(!el) return;
-        setCounter(el, el.hasAttribute('data-minlength') ? min : 0);
-        el.addEventListener('input', ()=>{ setCounter(el, el.hasAttribute('data-minlength') ? min : 0); render(); });
+      const inputs = Array.from(f.querySelectorAll('textarea, input[type="text"]'));
+      inputs.forEach(el=>{
+        const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+        setCounter(el, min);
+        el.addEventListener('input', ()=>{ setCounter(el, min); render(); });
       });
       render();
     })();
     </script>
   </form>
-  <?php return ob_get_clean();
+  <?php
+  return ob_get_clean();
 });
