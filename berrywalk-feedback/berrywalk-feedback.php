@@ -38,6 +38,7 @@ require_once BWF_DIR.'includes/my-questions.php';
 require_once BWF_DIR.'includes/view-question.php';
 require_once __DIR__ . '/includes/admin-owner-form-settings.php'; // 관리자에서 질문지 문구/글자수 수정
 require_once __DIR__ . '/includes/admin-profile-fix.php'; //관리자 프로필 화면 – 저장 버튼 없음 + “WP-Members 추가 필드” 오류 표시
+require_once __DIR__ . '/includes/owner-questions.php'; //대표 질문지 – 저장/보기/검증
 
 
 

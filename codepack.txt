@@ -1,7 +1,7 @@
 ﻿===== META =====
 Repo: https://github.com/newcode4/berrywalk_Feedback.git
-Branch: main  |  Tag: 0.3.4  |  Commit: 4e94463
-Generated: 2025-09-17 09:21:20
+Branch: main  |  Tag: 0.3.9  |  Commit: 2497e70
+Generated: 2025-09-17 11:04:01
 
 ===== FILE: pack-code.ps1 (4063 bytes, 113 lines) =====
 `$ext
@@ -119,19 +119,19 @@ foreach ($f in $files) {
 "생성 완료: $(Join-Path $Root $Out)  (총 approx $totalBytes bytes)"
 
 `$nl
-===== FILE: berrywalk-feedback\berrywalk-feedback.php (2619 bytes, 72 lines) =====
+===== FILE: berrywalk-feedback\berrywalk-feedback.php (3004 bytes, 77 lines) =====
 `$ext
 <?php
 /**
  * Plugin Name: Berrywalk Feedback
  * Description: 대표 질문 수집 → 고객 서술형 피드백 → 관리자 검토까지 한 번에 연결하는 MVP 플러그인.
- * Version: 0.3.4
+ * Version: 0.3.9
  * Author: Berrywalk
  */
 
 if (!defined('ABSPATH')) exit;
 
-define('BWF_VER', '0.3.4');
+define('BWF_VER', '0.3.9');
 define('BWF_DIR', plugin_dir_path(__FILE__));
 define('BWF_URL', plugin_dir_url(__FILE__));
 
@@ -159,6 +159,11 @@ require_once BWF_DIR.'includes/admin-users.php';         // ✅ 사용자 화면
 require_once BWF_DIR.'includes/questions-admin.php';
 require_once BWF_DIR.'includes/my-questions.php';
 require_once BWF_DIR.'includes/view-question.php';
+require_once __DIR__ . '/includes/admin-owner-form-settings.php'; // 관리자에서 질문지 문구/글자수 수정
+require_once __DIR__ . '/includes/admin-profile-fix.php'; //관리자 프로필 화면 – 저장 버튼 없음 + “WP-Members 추가 필드” 오류 표시
+require_once __DIR__ . '/includes/owner-questions.php'; //대표 질문지 – 저장/보기/검증
+
+
 
 
 
@@ -218,6 +223,418 @@ License: GPLv2 or later
 == 업데이트 ==
 - /plugin-update-checker 포함.
 - inc/update.php에서 GitHub URL/Branch/Token 설정.
+
+`$nl
+===== FILE: berrywalk-feedback\includes\admin-owner-form-settings.php (17584 bytes, 331 lines) =====
+`$ext
+<?php
+if (!defined('ABSPATH')) exit;
+
+/* ------------------------------
+   대표 질문지 빌더 – 옵션(JSON) 저장
+   option_name: bwf_owner_builder_json
+   ------------------------------ */
+
+/** 기본 JSON */
+function bwf_owner_builder_default_json(){
+  $json = [
+    "title" => "대표님 핵심 질문지",
+    "intro_html" => "사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 {MIN}자</strong>입니다. <em>(단, <strong>“고객에게 물어보고 싶은 3가지”</strong>는 글자수 제한 없음)</em>",
+    "min_length" => 200,
+    "questions" => [
+      [
+        "id"=>"problem","type"=>"textarea","label"=>"1. 지금, 우리 사업의 가장 큰 고민은 무엇인가요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 현재 가장 답답하거나 성장이 정체되었다고 느끼는 구체적인 상황을 한두 문장으로 설명해 주세요. 예: “광고는 많이 했는데…” 등 <strong>숫자</strong>/<strong>행동</strong> 기반.",
+        "examples_html"=>"<ul><li>“최근 인스타그램 광고 효율이 너무 안 나와요. 클릭은 많은데, 웹사이트 체류가 1분도 안 돼요.”</li><li>“재구매율이 낮아 신규 고객 유입 부담이 큽니다.”</li></ul>"
+      ],
+      [
+        "id"=>"value","type"=>"textarea","label"=>"2. 우리 서비스는 고객의 ‘어떤 문제’를 해결해주고 있나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 고객의 전/후 변화를 떠올려 가장 중요한 <strong>가치</strong>를 한 문장으로.",
+        "examples_html"=>"<ol><li>“서류 작업을 5분 만에 자동화 → 본업 집중.”</li><li>“바쁜 직장인에게 집밥 같은 건강한 한 끼 제공.”</li></ol>"
+      ],
+      [
+        "id"=>"ideal_customer","type"=>"textarea","label"=>"3. 우리 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 가장 잘 맞는 사람의 특징 + 우리를 고를 <strong>결정적 이유</strong>.",
+        "examples_html"=>"<p>“시간·비용이 부족한 <strong>20대 대학생</strong> → 15분 홈트 영상으로 해결.”</p>"
+      ],
+      [
+        "id"=>"ask3","type"=>"group","label"=>"4. 고객에게 물어보고 싶은 3가지","required"=>true,"count_as"=>1,
+        "desc_html"=>"고객의 <strong>실제 경험</strong>을 바탕으로 구체적으로 묻는 3개의 질문을 작성하세요.",
+        "examples_html"=>"<p><strong>상품</strong></p><ul><li>“첫인상(포장/디자인/첫 사용)?”</li><li>“가장 만족/아쉬웠던 점?”</li></ul><p><strong>서비스</strong></p><ul><li>“무료체험 때 최고의 포인트/아쉬움?”</li></ul>",
+        "sub" => [
+          ["id"=>"q1","label"=>"질문 1","placeholder"=>"예: 우리 서비스를 알게 된 경로는 무엇이었나요?","required"=>true,"minlength"=>0],
+          ["id"=>"q2","label"=>"질문 2","placeholder"=>"예: 결심 포인트는 무엇이었나요?","required"=>true,"minlength"=>0],
+          ["id"=>"q3","label"=>"질문 3","placeholder"=>"예: 사용 중 가장 불편했던 점은?","required"=>true,"minlength"=>0]
+        ]
+      ],
+      [
+        "id"=>"competitors","type"=>"textarea","label"=>"5. 현재 경쟁사는 어디이며, 그들과의 차별점은 무엇이라고 생각하시나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 주요 경쟁사 1~2곳과 비교해 강·약점을 정리.",
+        "examples_html"=>"<p>“A는 저렴하지만 품질이 낮고, B는 비싸지만 품질이 높다 → 우리는 <strong>적정 가격 + 높은 만족</strong>.”</p>"
+      ]
+    ]
+  ];
+  return wp_json_encode($json, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+}
+
+/* 옵션 등록(저장 시 JSON 정합성 보정) */
+add_action('admin_init', function(){
+  register_setting('bwf_owner_builder_group','bwf_owner_builder_json', [
+    'type'=>'string',
+    'sanitize_callback'=>function($raw){
+      $raw = wp_unslash($raw);               // 1) 슬래시 제거
+      $try = json_decode($raw, true);
+      if (json_last_error() !== JSON_ERROR_NONE) {
+        // 깨졌으면 기본값으로 되돌림(안전)
+        return bwf_owner_builder_default_json();
+      }
+      // 2) 정렬/정상화해서 저장
+      return wp_json_encode($try, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT);
+    }
+  ]);
+});
+
+/* 메뉴 */
+add_action('admin_menu', function(){
+  add_submenu_page('bwf_crm','질문지 빌더','질문지 빌더','manage_options','bwf_owner_builder','bwf_owner_builder_page');
+});
+
+/* 관리자 페이지 */
+function bwf_owner_builder_page(){
+  $raw = get_option('bwf_owner_builder_json');
+  if(!$raw) $raw = bwf_owner_builder_default_json();
+  ?>
+  <div class="wrap">
+    <h1>대표 질문지 빌더</h1>
+    <p>문항 추가/삭제/이동, 타입 변경, 그룹(소문항) 구성까지 지원합니다.</p>
+
+    <style>
+      /* 빌더 전용 스타일(관리자) */
+      .bwf-bui-wrap{max-width:980px}
+      .bwf-bui-row{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;margin:10px 0}
+      .bwf-bui-row h3{margin:0 0 8px;display:flex;align-items:center;gap:8px}
+      .bwf-bui-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+      .bwf-bui-grid label{display:block;font-weight:600;margin:6px 0}
+      .bwf-bui-grid input[type=text],.bwf-bui-grid input[type=number],.bwf-bui-grid textarea,.bwf-bui-grid select{width:100%}
+      .bwf-bui-actions{display:flex;gap:6px}
+      .bwf-bui-sub{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:10px;margin:8px 0}
+      .bwf-bui-sub h4{margin:0 0 6px;display:flex;align-items:center;gap:6px}
+      .bwf-bui-sublist .item{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin:6px 0}
+      .bwf-bui-sublist .row{display:grid;grid-template-columns:1fr 1fr 120px;gap:8px}
+      .bwf-bui-sublist label{display:block;font-weight:600;margin:4px 0}
+      .bwf-bui-note{color:#475569}
+      .button.gray{background:#f3f4f6;border-color:#e5e7eb;color:#111827}
+    </style>
+
+    <div class="bwf-bui-wrap" id="bwfBui"></div>
+
+    <form method="post" action="options.php" id="bwfBuiForm">
+      <?php settings_fields('bwf_owner_builder_group'); ?>
+      <input type="hidden" name="bwf_owner_builder_json" id="bwfOwnerJson" value="<?php echo esc_attr($raw); ?>">
+      <?php submit_button('저장'); ?>
+    </form>
+
+    <script>
+    (function(){
+      const container = document.getElementById('bwfBui');
+      const hidden = document.getElementById('bwfOwnerJson');
+
+      // 안전 파서
+      function parseJSON(s, fallback){ try{ return JSON.parse(s); }catch(e){ return fallback; } }
+      let state = parseJSON(hidden.value, null);
+      if(!state || !state.questions){ state = parseJSON(`<?php echo addslashes(bwf_owner_builder_default_json()); ?>`, {}); }
+
+      // 도우미
+      const uid = p => (p||'q')+'_'+Math.random().toString(36).slice(2,8);
+      const syncHidden = () => hidden.value = JSON.stringify(state); // ★ 모든 변경 즉시 반영
+
+      // 공통 렌더
+      function render(){
+        container.innerHTML = '';
+        const wrap = document.createElement('div');
+
+        // 공통 설정
+        const g = document.createElement('div');
+        g.className='bwf-bui-row';
+        g.innerHTML = `
+          <h3>공통 설정</h3>
+          <div class="bwf-bui-grid">
+            <div>
+              <label>폼 제목</label>
+              <input type="text" data-global="title" value="${state.title||''}">
+            </div>
+            <div>
+              <label>최소 글자수(기본값)</label>
+              <input type="number" min="0" data-global="min_length" value="${state.min_length||200}">
+            </div>
+            <div style="grid-column:1/-1">
+              <label>인트로(HTML 가능) <span class="bwf-bui-note">※ {MIN}은 최소 글자수로 치환</span></label>
+              <textarea rows="3" data-global="intro_html">${state.intro_html||''}</textarea>
+            </div>
+          </div>
+        `;
+        wrap.appendChild(g);
+
+        // 문항들
+        state.questions = state.questions || [];
+        state.questions.forEach((q, idx)=>{
+          const isGroup = q.type === 'group';
+          const row = document.createElement('div');
+          row.className = 'bwf-bui-row';
+          row.dataset.idx = idx;
+
+          row.innerHTML = `
+            <h3>
+              <span>문항 ${idx+1}</span>
+              <span class="bwf-bui-actions">
+                <button class="button button-small" data-act="up">위</button>
+                <button class="button button-small" data-act="down">아래</button>
+                <button class="button button-small" data-act="del">삭제</button>
+              </span>
+            </h3>
+            <div class="bwf-bui-grid">
+              <div>
+                <label>라벨(제목)</label>
+                <input type="text" data-field="label" value="${q.label||''}">
+              </div>
+              <div>
+                <label>타입</label>
+                <select data-field="type">
+                  <option value="textarea" ${q.type==='textarea'?'selected':''}>텍스트영역</option>
+                  <option value="text" ${q.type==='text'?'selected':''}>한 줄 입력</option>
+                  <option value="group" ${q.type==='group'?'selected':''}>그룹(소문항)</option>
+                </select>
+              </div>
+              <div>
+                <label>필수</label>
+                <select data-field="required">
+                  <option value="1" ${(q.required!==false)?'selected':''}>예</option>
+                  <option value="0" ${(q.required===false)?'selected':''}>아니오</option>
+                </select>
+              </div>
+              <div>
+                <label>최소 글자수(빈칸=공통)</label>
+                <input type="number" min="0" data-field="minlength" value="${(q.minlength===''||q.minlength==null)?'':q.minlength}">
+              </div>
+              <div>
+                <label>진행률 카운트(몇 문항으로 계산?)</label>
+                <input type="number" min="0" data-field="count_as" value="${(q.count_as==null)?1:q.count_as}">
+              </div>
+              <div style="grid-column:1/-1">
+                <label>설명(HTML 가능)</label>
+                <textarea rows="3" data-field="desc_html">${q.desc_html||''}</textarea>
+              </div>
+              <div style="grid-column:1/-1">
+                <label>예시(HTML 가능)</label>
+                <textarea rows="4" data-field="examples_html">${q.examples_html||''}</textarea>
+              </div>
+            </div>
+
+            ${isGroup ? `
+              <div class="bwf-bui-sub">
+                <h4>소문항 <button class="button button-small" data-act="addSub">추가</button></h4>
+                <div class="bwf-bui-sublist">
+                  ${(q.sub||[]).map((s,si)=>`
+                    <div class="item" data-si="${si}">
+                      <div class="row">
+                        <div>
+                          <label>라벨</label>
+                          <input type="text" data-sub="label" value="${s.label||''}">
+                        </div>
+                        <div>
+                          <label>플레이스홀더</label>
+                          <input type="text" data-sub="placeholder" value="${s.placeholder||''}">
+                        </div>
+                        <div>
+                          <label>필수</label>
+                          <select data-sub="required">
+                            <option value="1" ${(s.required!==false)?'selected':''}>예</option>
+                            <option value="0" ${(s.required===false)?'selected':''}>아니오</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div>
+                          <label>서브 ID</label>
+                          <input type="text" data-sub="id" value="${s.id||('s_'+si)}">
+                        </div>
+                        <div>
+                          <label>최소 글자수(빈칸=제한없음)</label>
+                          <input type="number" min="0" data-sub="minlength" value="${(s.minlength===''||s.minlength==null)?'':s.minlength}">
+                        </div>
+                        <div class="bwf-bui-actions" style="align-items:end;">
+                          <button class="button button-small gray" data-act="subUp">위</button>
+                          <button class="button button-small gray" data-act="subDown">아래</button>
+                          <button class="button button-small" data-act="subDel">삭제</button>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : '' }
+          `;
+          wrap.appendChild(row);
+        });
+
+        // 문항 추가 버튼
+        const addWrap = document.createElement('p');
+        addWrap.innerHTML = `<button class="button button-primary" id="bwfAddQ">문항 추가</button>`;
+        wrap.appendChild(addWrap);
+
+        container.appendChild(wrap);
+        syncHidden(); // 렌더 후 상태 동기화
+
+        /* 이벤트: 위임 방식으로 안정화 */
+        wrap.addEventListener('click', function(e){
+          const t = e.target;
+          // 문항 추가
+          if(t.id==='bwfAddQ'){ e.preventDefault();
+            state.questions.push({id:uid('q'),type:'textarea',label:'새 문항',required:true,minlength:'',count_as:1,desc_html:'',examples_html:''});
+            render(); return;
+          }
+          // 행/인덱스 탐색
+          const row = t.closest('.bwf-bui-row[data-idx]');
+          if(!row) return;
+          const i = parseInt(row.dataset.idx,10);
+          const q = state.questions[i];
+
+          // 행 액션
+          const act = t.dataset.act;
+          if(act==='del'){ e.preventDefault(); state.questions.splice(i,1); render(); return; }
+          if(act==='up'){ e.preventDefault(); if(i>0){ [state.questions[i-1],state.questions[i]]=[state.questions[i],state.questions[i-1]]; render(); } return; }
+          if(act==='down'){ e.preventDefault(); if(i<state.questions.length-1){ [state.questions[i+1],state.questions[i]]=[state.questions[i],state.questions[i+1]]; render(); } return; }
+          if(act==='addSub'){ e.preventDefault(); q.sub=q.sub||[]; q.sub.push({id:uid(q.id||'s'),label:'소문항',placeholder:'',required:true,minlength:''}); render(); return; }
+
+          // 소문항 액션
+          const item = t.closest('.item[data-si]');
+          if(item){
+            const si = parseInt(item.dataset.si,10);
+            if(act==='subDel'){ e.preventDefault(); q.sub.splice(si,1); render(); return; }
+            if(act==='subUp'){ e.preventDefault(); if(si>0){ [q.sub[si-1],q.sub[si]]=[q.sub[si],q.sub[si-1]]; render(); } return; }
+            if(act==='subDown'){ e.preventDefault(); if(si<q.sub.length-1){ [q.sub[si+1],q.sub[si]]=[q.sub[si],q.sub[si+1]]; render(); } return; }
+          }
+        });
+
+        // 값 변경(입력/선택) – 위임
+        wrap.addEventListener('input', function(e){
+          const el = e.target;
+          // 글로벌
+          if(el.matches('[data-global]')){
+            const k = el.getAttribute('data-global');
+            state[k] = (k==='min_length') ? Math.max(0,parseInt(el.value||'0',10)) : el.value;
+            syncHidden(); return;
+          }
+          // 문항
+          const row = el.closest('.bwf-bui-row[data-idx]'); if(!row) return;
+          const i = parseInt(row.dataset.idx,10); const q = state.questions[i];
+          if(el.matches('[data-field]')){
+            const k = el.getAttribute('data-field');
+            if(k==='required'){ q[k] = (el.value==='1'); }
+            else if(k==='minlength' || k==='count_as'){ q[k] = (el.value===''? '' : Math.max(0,parseInt(el.value,10))); }
+            else if(k==='type'){ q[k] = el.value; if(q[k]!=='group') delete q.sub; render(); return; } // 타입 변경 즉시 재렌더
+            else { q[k] = el.value; }
+            syncHidden(); return;
+          }
+          // 소문항
+          const item = el.closest('.item[data-si]');
+          if(item && q.type==='group'){
+            const si = parseInt(item.dataset.si,10); const s = q.sub[si];
+            const sk = el.getAttribute('data-sub');
+            if(sk==='required'){ s[sk] = (el.value==='1'); }
+            else if(sk==='minlength'){ s[sk] = (el.value===''? '' : Math.max(0,parseInt(el.value,10))); }
+            else { s[sk] = el.value; }
+            syncHidden(); return;
+          }
+        });
+
+        // 제출 전 최종 동기화(이중 안전장치)
+        document.getElementById('bwfBuiForm').addEventListener('submit', function(){ syncHidden(); });
+      }
+      render();
+    })();
+    </script>
+  </div>
+  <?php
+}
+
+`$nl
+===== FILE: berrywalk-feedback\includes\admin-profile-fix.php (2991 bytes, 75 lines) =====
+`$ext
+<?php
+if (!defined('ABSPATH')) exit;
+
+/**
+ * 관리자 프로필 UI 복구
+ * - WP-Members가 출력하는 문제 섹션/오류 블록 제거(가능하면 서버단 후크도 제거)
+ * - 저장 버튼 없을 때 자동 삽입(#your-profile, #createuser 모두 커버)
+ */
+
+/* 1) 가능하면 서버단에서 WP-Members 프로필 후크 제거 */
+add_action('admin_init', function(){
+  foreach (['show_user_profile','edit_user_profile'] as $hook){
+    global $wp_filter;
+    if (!isset($wp_filter[$hook])) continue;
+    $callbacks = $wp_filter[$hook]->callbacks ?? [];
+    foreach ($callbacks as $prio => $items){
+      foreach ($items as $key => $cb){
+        $fn = $cb['function'];
+        // 함수명/클래스명/콜러블 문자열에 'wpmem'이 포함되면 제거
+        $name = '';
+        if (is_string($fn)) $name = $fn;
+        elseif (is_array($fn) && is_object($fn[0])) $name = get_class($fn[0]).'::'.$fn[1];
+        elseif (is_array($fn)) $name = implode('::', $fn);
+        if (stripos($name, 'wpmem') !== false) {
+          remove_action($hook, $fn, $prio);
+        }
+      }
+    }
+  }
+});
+
+/* 2) 프론트 단에서 섹션 숨김 + 저장 버튼 보장 */
+function bwf_admin_profile_fix_footer(){
+  ?>
+  <style>
+    /* WP-Members 오류 블록/추가 필드 섹션 숨김(보여도 무해, 저장 방해만 막음) */
+    h2:has(+ p + div + p + p + p + p + p + p + p + p + p + p + p + p) {}
+  </style>
+  <script>
+  (function(){
+    function ensureSubmit(form){
+      if(!form) return;
+      if(!form.querySelector('p.submit input[type=submit], .submit input[type=submit]')){
+        const p = document.createElement('p'); p.className='submit';
+        const btn = document.createElement('input');
+        btn.type='submit'; btn.className='button button-primary';
+        btn.value='프로필 업데이트';
+        p.appendChild(btn);
+        form.appendChild(p);
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      // 1) WP-Members 섹션 헤더 텍스트 찾으면 해당 섹션부터 다음 H2 전까지 숨김
+      const headers = Array.from(document.querySelectorAll('h2'));
+      headers.forEach(h=>{
+        const t = h.textContent.trim();
+        if (/WP-?Members\s*추가\s*필드/i.test(t)){
+          let el = h; el.style.display='none';
+          while (el && el.nextElementSibling && el.nextElementSibling.tagName !== 'H2'){
+            el = el.nextElementSibling; el.style.display='none';
+          }
+        }
+      });
+      // 2) 저장 버튼 없으면 강제 삽입
+      ensureSubmit(document.querySelector('form#your-profile'));
+      ensureSubmit(document.querySelector('form#createuser'));
+    });
+  })();
+  </script>
+  <?php
+}
+add_action('admin_footer-profile.php','bwf_admin_profile_fix_footer');
+add_action('admin_footer-user-edit.php','bwf_admin_profile_fix_footer');
+add_action('admin_footer-user-new.php','bwf_admin_profile_fix_footer');
 
 `$nl
 ===== FILE: berrywalk-feedback\includes\admin-users.php (2574 bytes, 67 lines) =====
@@ -554,44 +971,414 @@ function bwf_format_phone($digits){
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\my-questions.php (1476 bytes, 31 lines) =====
+===== FILE: berrywalk-feedback\includes\my-questions.php (2080 bytes, 47 lines) =====
 `$ext
 <?php
+if (!defined('ABSPATH')) exit;
+
 add_shortcode('bw_my_questions', function(){
   if(!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
 
-    wp_enqueue_style('bwf-forms');
+  wp_enqueue_style('bwf-forms');
 
   $uid = get_current_user_id();
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
   $items=[]; if(is_array($now)&&$now) $items[]=$now; $items=array_merge($items,$hist);
 
+  $view_page = get_page_by_path('my-question-view');
+  $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
+
   ob_start();
   echo '<div class="bwf-form"><h2>내 질문 저장본</h2>';
   if(empty($items)){ echo '<p>아직 저장한 질문이 없습니다.</p></div>'; return ob_get_clean(); }
 
-  $view_page = get_page_by_path('my-question-view');
-  $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
+  // 페이지네이션
+  $per  = 10;
+  $page = max(1, intval($_GET['pg'] ?? 1));
+  $total= count($items);
+  $maxp = max(1, (int)ceil($total / $per));
+  $slice = array_slice($items, ($page-1)*$per, $per);
 
   echo '<ul class="bwf-list">';
-  foreach($items as $it){
+  foreach($slice as $it){
     $t = esc_html($it['_saved_at'] ?? '');
     $flat = wp_strip_all_tags(implode(' ', array_map('strval',$it)));
     $sum  = esc_html(mb_substr($flat,0,140)).(mb_strlen($flat)>140?'…':'');
-    $goto = esc_url(add_query_arg(['qid'=>$it['_id'] ?? ''],$view_url));
-    echo "<li><span class='bwf-time'>{$t}</span> <span class='bwf-sum'>{$sum}</span> <a class='button' href='{$goto}'>보기</a></li>";
+    $goto = esc_url(add_query_arg(['qid'=>$it['_id'] ?? '','uid'=>$uid], $view_url));
+    echo "<li><span class='bwf-time'>{$t}</span> <span class='bwf-sum'>{$sum}</span> <a class='bwf-btn-secondary' href='{$goto}'>보기</a></li>";
   }
-  echo '</ul><p style="margin-top:14px"><a class="button button-primary' .
-       "' href='".esc_url(home_url('/owner-questions/'))."'>새 질문 작성</a></p></div>";
+  echo '</ul>';
+
+  echo '<div class="bwf-pager">';
+  if ($page>1) echo '<a class="bwf-btn-secondary" href="'.esc_url(add_query_arg('pg',$page-1)).'">이전</a>';
+  echo '<span class="bwf-page"> '.$page.' / '.$maxp.' </span>';
+  if ($page<$maxp) echo '<a class="bwf-btn-secondary" href="'.esc_url(add_query_arg('pg',$page+1)).'">다음</a>';
+  echo '</div>';
+
+  echo "<p style='margin-top:14px'><a class='bwf-btn' href='".esc_url(home_url('/owner-questions/'))."'>새 질문 작성</a></p></div>";
   return ob_get_clean();
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\questions-admin.php (3899 bytes, 89 lines) =====
+===== FILE: berrywalk-feedback\includes\owner-questions.php (17808 bytes, 349 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
+
+/**
+ * 대표 질문지: 개별 저장(CPT) + 필수 검증 + 중복 방지 + 보기 템플릿
+ * - CPT: bwf_owner_answer (비공개, 관리자에서만 목록 확인)
+ * - Shortcode: [bwf_owner_questions]  (작성 폼)
+ * - Shortcode: [bwf_owner_view id="123"] (보기 화면)
+ * - 저장 성공 후 리다이렉트 URL: BWF_OWNER_AFTER_SAVE_URL 상수로 제어
+ */
+
+if (!defined('BWF_OWNER_AFTER_SAVE_URL')) {
+  define('BWF_OWNER_AFTER_SAVE_URL', home_url('/')); // ← 저장 후 보낼 URL(원하면 바꿔)
+}
+
+/* --------------------------------------------------------------------------
+   0) 질문지 구성 로드 (관리자 빌더 옵션 사용, 없으면 기본값)
+-------------------------------------------------------------------------- */
+function bwf_owner_default_config_array(){
+  return [
+    "title" => "대표님 핵심 질문지",
+    "intro_html" => "사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 최소 <strong>{MIN}</strong>자입니다. <em>(단, <strong>“고객에게 물어보고 싶은 3가지”</strong>는 글자수 제한 없음)</em>",
+    "min_length" => 200,
+    "questions" => [
+      [
+        "id"=>"problem","type"=>"textarea","label"=>"1. 지금, 우리 사업의 가장 큰 고민은 무엇인가요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 현재 가장 답답하거나 성장이 정체되었다고 느끼는 구체적인 상황을 한두 문장으로 설명해 주세요. 예: “광고는 많이 했는데…” 등 숫자/행동 기반.",
+        "examples_html"=>"<ul><li>“최근 인스타그램 광고 효율이 너무 안 나와요. 클릭은 많은데, 저희 웹사이트에 1분도 머물지 않고 나가는 사람이 많아요.”</li><li>“기존 고객들의 재구매율이 낮아서, 항상 새로운 고객을 찾아야 하는 부담이 큽니다.”</li></ul>"
+      ],
+      [
+        "id"=>"value","type"=>"textarea","label"=>"2. 우리 서비스는 고객의 ‘어떤 문제’를 해결해주고 있나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 고객의 전/후 변화를 떠올려 가장 중요한 <strong>가치</strong>를 한 문장으로.",
+        "examples_html"=>"<ol><li>“서류 작업을 5분 만에 자동화 → 본업 집중.”</li><li>“바쁜 직장인에게 집밥 같은 건강한 한 끼 제공.”</li></ol>"
+      ],
+      [
+        "id"=>"ideal_customer","type"=>"textarea","label"=>"3. 우리 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 가장 잘 맞는 사람의 특징 + 우리를 고를 <strong>결정적 이유</strong>.",
+        "examples_html"=>"<p>“시간·비용이 부족한 <strong>20대 대학생</strong> → 15분 홈트 영상으로 해결.”</p>"
+      ],
+      [
+        "id"=>"ask3","type"=>"group","label"=>"4. 고객에게 물어보고 싶은 3가지","required"=>true,"count_as"=>1,
+        "desc_html"=>"대표님이 고객에게 직접 묻고 싶은 핵심 질문 3가지를 작성하세요. 경험한 내용을 바탕으로 구체적으로.",
+        "examples_html"=>"<p><strong>상품</strong></p><ul><li>“처음 받았을 때 어떤 느낌이었나요? (포장/디자인/첫 경험)”</li><li>“가장 만족/아쉬웠던 점은?”</li></ul><p><strong>서비스</strong></p><ul><li>“무료체험 때 최고의 포인트/아쉬웠던 점?”</li></ul>",
+        "sub" => [
+          ["id"=>"q1","label"=>"질문 1","placeholder"=>"예: 우리 서비스를 알게 된 경로는 무엇이었나요?","required"=>true,"minlength"=>0],
+          ["id"=>"q2","label"=>"질문 2","placeholder"=>"예: 결심 포인트는 무엇이었나요?","required"=>true,"minlength"=>0],
+          ["id"=>"q3","label"=>"질문 3","placeholder"=>"예: 사용 중 가장 불편했던 점은?","required"=>true,"minlength"=>0]
+        ]
+      ],
+      [
+        "id"=>"competitors","type"=>"textarea","label"=>"5. 현재 경쟁사는 어디이며, 그들과의 차별점은 무엇이라고 생각하시나요?","required"=>true,"minlength"=>200,"count_as"=>1,
+        "desc_html"=>"설명: 주요 경쟁사 1~2곳과 비교해 강·약점을 정리.",
+        "examples_html"=>"<p>“A는 저렴하지만 품질이 낮고, B는 비싸지만 품질이 높다 → 우리는 <strong>적정 가격 + 높은 만족</strong>.”</p>"
+      ]
+    ]
+  ];
+}
+function bwf_owner_get_config(){
+  $raw = get_option('bwf_owner_builder_json', '');
+  if (!$raw) return bwf_owner_default_config_array();
+  $arr = json_decode($raw, true);
+  if (!is_array($arr) || empty($arr['questions'])) return bwf_owner_default_config_array();
+  return $arr;
+}
+
+/* --------------------------------------------------------------------------
+   1) CPT 등록: bwf_owner_answer (개별 저장)
+-------------------------------------------------------------------------- */
+add_action('init', function(){
+  register_post_type('bwf_owner_answer', [
+    'labels' => ['name'=>'대표 질문','singular_name'=>'대표 질문'],
+    'public' => false,
+    'show_ui' => true,
+    'show_in_menu' => true,
+    'menu_icon' => 'dashicons-feedback',
+    'supports' => ['title','author'],
+    'capability_type' => 'post',
+    'map_meta_cap' => true,
+  ]);
+});
+
+/* --------------------------------------------------------------------------
+   2) 단건 보기: [bwf_owner_view id="123"]
+   - 예시는 숨기고 질문/답변만 표시 (폼과 동일 톤)
+-------------------------------------------------------------------------- */
+add_shortcode('bwf_owner_view', function($atts){
+  $id = intval($atts['id'] ?? 0);
+  if (!$id) return '';
+  $post = get_post($id);
+  if (!$post || $post->post_type!=='bwf_owner_answer') return '';
+
+  $cfg = bwf_owner_get_config();
+  $answers = (array) get_post_meta($id, 'bwf_answers', true);
+
+  ob_start(); ?>
+  <div class="bwf-form bwf-owner">
+    <h2 class="bwf-title"><?php echo esc_html($cfg['title'] ?? '대표 질문 보기'); ?></h2>
+
+    <?php foreach(($cfg['questions'] ?? []) as $q): ?>
+      <div class="bwf-field">
+        <label><?php echo esc_html($q['label']); ?></label>
+        <?php if(($q['type'] ?? 'textarea') === 'group'): ?>
+          <?php foreach(($q['sub'] ?? []) as $sub): 
+            $v = trim((string)($answers[$q['id']][$sub['id']] ?? '')); ?>
+            <div class="bwf-sub">
+              <div style="font-weight:600;margin:8px 0 6px;"><?php echo esc_html($sub['label']); ?></div>
+              <div class="bwf-card"><?php echo nl2br(esc_html($v)); ?></div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: 
+          $v = trim((string)($answers[$q['id']] ?? '')); ?>
+          <div class="bwf-card"><?php echo nl2br(esc_html($v)); ?></div>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+  <?php
+  return ob_get_clean();
+});
+
+/* --------------------------------------------------------------------------
+   3) 작성 폼: [bwf_owner_questions]
+   - 새 글은 항상 빈 값(이전 값 자동채움 없음)
+   - 필수/글자수 미충족 시 저장 차단 + 모달 + 빨간 테두리 + 스크롤
+   - 중복 제출 방지(트랜지언트 락 + 버튼 비활성)
+-------------------------------------------------------------------------- */
+add_shortcode('bwf_owner_questions', function(){
+  if (!is_user_logged_in()) return '<div class="bwf-form">로그인이 필요합니다.</div>';
+  $cfg = bwf_owner_get_config();
+  $min = intval($cfg['min_length'] ?? 200);
+  $nonce = wp_create_nonce('bwf_owner_save');
+  $err  = isset($_POST['bwf_q_error']) ? sanitize_text_field($_POST['bwf_q_error']) : '';
+  $old  = isset($_POST['q']) ? (array) $_POST['q'] : []; // 검증 실패 후 재표시용
+
+  ob_start(); ?>
+  <form class="bwf-form bwf-owner" method="post" id="bwfOwnerForm" novalidate>
+    <input type="hidden" name="bwf_owner_action" value="save">
+    <input type="hidden" name="bwf_owner_nonce" value="<?php echo esc_attr($nonce); ?>">
+
+    <h2 class="bwf-title"><?php echo esc_html($cfg['title'] ?? '대표님 핵심 질문지'); ?></h2>
+    <p class="bwf-help">
+      <?php
+        $intro = (string)($cfg['intro_html'] ?? '');
+        $intro = str_replace('{MIN}', $min, $intro);
+        echo wp_kses_post($intro);
+      ?>
+    </p>
+
+    <div class="bwf-topwrap">
+      <div class="bwf-top-title"><b>작성</b> <span class="done">0</span>/<span class="total"><?php
+        $t = 0; foreach(($cfg['questions'] ?? []) as $q){ $t += intval($q['count_as'] ?? 1); } echo intval($t);
+      ?></span>문항</div>
+      <div id="bwf-progress"><div class="bar" style="width:0%"></div></div>
+    </div>
+
+    <?php foreach(($cfg['questions'] ?? []) as $q): 
+      $qid = esc_attr($q['id']);
+      $req = !isset($q['required']) || $q['required'];     // 기본 필수
+      $ml  = $q['minlength'] ?? $min;
+      $type = $q['type'] ?? 'textarea';
+      $desc = $q['desc_html'] ?? '';
+      $ex   = $q['examples_html'] ?? '';
+    ?>
+      <div class="bwf-field">
+        <label><?php echo esc_html($q['label']); ?><?php if($req): ?> <span class="bwf-required">*</span><?php endif; ?></label>
+        <?php if($desc): ?><div class="bwf-desc"><?php echo wp_kses_post($desc); ?></div><?php endif; ?>
+        <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
+
+        <?php if($type==='group'): ?>
+          <?php foreach(($q['sub'] ?? []) as $sub):
+            $sid = esc_attr($sub['id']); $pl = esc_attr($sub['placeholder'] ?? '');
+            $sreq = !isset($sub['required']) || $sub['required'];
+            $val = isset($old[$qid][$sid]) ? (string)$old[$qid][$sid] : '';
+          ?>
+            <div class="bwf-sub">
+              <div style="font-weight:600;margin:8px 0 6px;"><?php echo esc_html($sub['label'] ?? ''); ?><?php if($sreq): ?> <span class="bwf-required">*</span><?php endif; ?></div>
+              <textarea name="q[<?php echo $qid; ?>][<?php echo $sid; ?>]" rows="3" <?php echo $sreq?'required':''; ?> placeholder="<?php echo $pl; ?>"><?php echo esc_textarea($val); ?></textarea>
+              <div class="bwf-helper"><span class="bwf-counter">0</span><?php /* 소문항은 글자수 제한 없음 */ ?></div>
+            </div>
+          <?php endforeach; ?>
+        <?php else:
+          $val = isset($old[$qid]) ? (string)$old[$qid] : '';
+        ?>
+          <textarea name="q[<?php echo $qid; ?>]" rows="5" <?php echo $req?'required':''; ?> minlength="<?php echo intval($ml); ?>" placeholder="내용을 입력하세요."><?php echo esc_textarea($val); ?></textarea>
+          <div class="bwf-helper">
+            <span class="bwf-guide"><?php echo intval($ml); ?>자 이상</span>
+            <span class="bwf-counter">0 / <?php echo intval($ml); ?>자</span>
+          </div>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+
+    <div class="bwf-actions">
+      <button type="submit" class="bwf-btn" id="bwfOwnerSubmit">저장하기</button>
+    </div>
+
+    <!-- 에러 모달 -->
+    <div class="bwf-modal" id="bwf-modal" aria-hidden="true">
+      <div class="bwf-modal__card">
+        <h3>입력이 필요한 항목이 있어요</h3>
+        <p class="bwf-modal__msg"><?php echo $err ? esc_html($err) : '필수 항목을 확인해 주세요.'; ?></p>
+        <div class="bwf-modal__actions">
+          <button type="button" class="bwf-btn" id="bwf-modal-ok">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      const wrap  = document.querySelector('.bwf-owner');
+      const bar   = wrap.querySelector('#bwf-progress .bar');
+      const done  = wrap.querySelector('.done');
+      const total = parseInt(wrap.querySelector('.total').textContent,10) || 0;
+      const btn   = document.getElementById('bwfOwnerSubmit');
+      const modal = document.getElementById('bwf-modal');
+      const ok    = document.getElementById('bwf-modal-ok');
+      const form  = document.getElementById('bwfOwnerForm');
+
+      function openModal(msg){ modal.querySelector('.bwf-modal__msg').textContent = msg; modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); }
+      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+      ok.addEventListener('click', closeModal);
+
+      // 글자수 카운터 + 진행률
+      function recalc(){
+        // 질문형(글자수 있는 애들만 카운트)
+        const groups = Array.from(wrap.querySelectorAll('.bwf-field'));
+        let okCount = 0;
+        groups.forEach(g=>{
+          const ta = g.querySelector('textarea[minlength]');
+          if(!ta) return; // 소문항 그룹 제외
+          const need = parseInt(ta.getAttribute('minlength') || '0', 10);
+          const now  = (ta.value || '').trim().length;
+          const counter = g.querySelector('.bwf-counter');
+          if(counter) counter.textContent = `${now} / ${need}자`;
+          if(need === 0 ? (now>0) : (now >= need)) okCount++;
+        });
+        done.textContent = okCount;
+        const pct = Math.min(100, Math.round((okCount/Math.max(1,total))*100));
+        bar.style.width = pct + '%';
+      }
+      wrap.addEventListener('input', recalc);
+      recalc();
+
+      // 제출 시 검증(필수/최소 글자)
+      form.addEventListener('submit', function(e){
+        let first = null; let msg = '누락된 필수 항목을 입력해 주세요.';
+        const fields = Array.from(form.querySelectorAll('textarea, input[required], select[required]'));
+        fields.forEach(el=>{
+          el.classList.remove('bwf-invalid'); el.removeAttribute('aria-invalid');
+          if(el.hasAttribute('minlength')){
+            const need = parseInt(el.getAttribute('minlength')||'0',10);
+            const now = (el.value||'').trim().length;
+            if(now < need){ el.setCustomValidity('최소 글자수 미달'); }
+            else el.setCustomValidity('');
+          }
+          if(!el.checkValidity()){
+            if(!first) first = el;
+            el.classList.add('bwf-invalid'); el.setAttribute('aria-invalid','true');
+          }
+        });
+        if(first){
+          e.preventDefault();
+          openModal(msg);
+          first.scrollIntoView({behavior:'smooth', block:'center'});
+          first.focus({preventScroll:true});
+          return;
+        }
+        // 중복 제출 방지
+        btn.disabled = true; btn.style.opacity = .7;
+      });
+
+      // PHP에서 에러가 내려온 경우 모달 자동오픈(문구는 서버에서 채움)
+      <?php if ($err) : ?> openModal('<?php echo esc_js($err); ?>'); <?php endif; ?>
+    })();
+    </script>
+  </form>
+  <?php
+  return ob_get_clean();
+});
+
+/* --------------------------------------------------------------------------
+   4) 저장 처리: 서버 검증 + 중복제출 방지 + 개별 포스트 생성
+-------------------------------------------------------------------------- */
+add_action('init', function(){
+  if (!isset($_POST['bwf_owner_action']) || $_POST['bwf_owner_action']!=='save') return;
+
+  if (!is_user_logged_in()) return;
+  if (!wp_verify_nonce($_POST['bwf_owner_nonce'] ?? '', 'bwf_owner_save')) return;
+
+  // 중복 제출 락(사용자+nonce 기준, 30초)
+  $uid = get_current_user_id();
+  $nonce = sanitize_text_field($_POST['bwf_owner_nonce']);
+  $lock_key = "bwf_owner_lock_{$uid}_".md5($nonce);
+  if (get_transient($lock_key)) return;
+  set_transient($lock_key, 1, 30);
+
+  $cfg = bwf_owner_get_config();
+  $min = intval($cfg['min_length'] ?? 200);
+  $q   = isset($_POST['q']) ? (array) $_POST['q'] : [];
+
+  // 서버 검증
+  $errors = [];
+  foreach(($cfg['questions'] ?? []) as $qq){
+    $id = $qq['id']; $type = $qq['type'] ?? 'textarea';
+    $required = !isset($qq['required']) || $qq['required'];
+    if ($type === 'group'){
+      foreach(($qq['sub'] ?? []) as $sub){
+        $sid = $sub['id']; $sreq = !isset($sub['required']) || $sub['required'];
+        $val = trim((string)($q[$id][$sid] ?? ''));
+        if ($sreq && $val===''){ $errors[] = "{$qq['label']} - {$sub['label']}을(를) 입력해 주세요."; }
+      }
+    } else {
+      $val = trim((string)($q[$id] ?? ''));
+      $ml  = intval($qq['minlength'] ?? $min);
+      if ($required && $val===''){ $errors[] = "{$qq['label']}을(를) 입력해 주세요."; }
+      if ($ml > 0 && mb_strlen($val) < $ml){ $errors[] = "{$qq['label']}은(는) 최소 {$ml}자 이상 작성해 주세요."; }
+    }
+  }
+
+  if (!empty($errors)){
+    $_POST['bwf_q_error'] = implode(' / ', $errors); // 폼에서 모달로 표시
+    return;
+  }
+
+  // 저장(항상 새 글 생성 → 기존 글 덮어쓰기/일괄변경 방지)
+  $post_id = wp_insert_post([
+    'post_type'   => 'bwf_owner_answer',
+    'post_title'  => '대표 질문 - '. current_time('Y-m-d H:i:s'),
+    'post_status' => 'publish',
+    'post_author' => $uid,
+  ], true);
+  if (is_wp_error($post_id)){
+    $_POST['bwf_q_error'] = $post_id->get_error_message();
+    return;
+  }
+  // JSON 그대로 저장
+  update_post_meta($post_id, 'bwf_answers', bwf_sanitize_deep($q));
+
+  // 완료 → 리다이렉트
+  wp_redirect(BWF_OWNER_AFTER_SAVE_URL);
+  exit;
+});
+
+/* 배열 value 전체 sanitize */
+function bwf_sanitize_deep($val){
+  if (is_array($val)){ foreach($val as $k=>$v){ $val[$k] = bwf_sanitize_deep($v); } return $val; }
+  return sanitize_textarea_field((string)$val);
+}
+
+`$nl
+===== FILE: berrywalk-feedback\includes\questions-admin.php (3744 bytes, 95 lines) =====
+`$ext
+<?php
+if (!defined('ABSPATH')) exit;
+
+require_once __DIR__ . '/helper.php';
 
 add_action('admin_menu', function(){
   add_menu_page('Berrywalk Feedback','Berrywalk Feedback','manage_options','bwf_crm','bwf_crm_landing','dashicons-feedback',26);
@@ -605,18 +1392,19 @@ function bwf_crm_landing(){
 function bwf_questions_page(){
   $q = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
 
-  // 대표(사용자) 조회: bwf_questions 메타가 있는 사용자만
+  // bwf_questions 메타가 있는 사용자만
   $users = new WP_User_Query([
-    'meta_key'   => 'bwf_questions',
+    'meta_key'     => 'bwf_questions',
     'meta_compare' => 'EXISTS',
-    'fields'     => ['ID','user_login','user_email','display_name'],
-    'number'     => 2000,
+    'fields'       => ['ID','user_login','user_email','display_name'],
+    'number'       => 2000,
   ]);
 
   $rows = [];
   foreach($users->get_results() as $u){
     $now  = get_user_meta($u->ID,'bwf_questions',true);
-    $hist = get_user_meta($u->ID,'bwf_questions_history',true); if(!is_array($hist)) $hist=[];
+    $hist = get_user_meta($u->ID,'bwf_questions_history',true);
+    if(!is_array($hist)) $hist=[];
     $items=[]; if(is_array($now)&&$now) $items[]=$now; $items=array_merge($items,$hist);
 
     foreach($items as $qs){
@@ -624,13 +1412,22 @@ function bwf_questions_page(){
       $flat = wp_strip_all_tags(implode(' ', array_map('strval',$qs)));
       if($q && mb_stripos($flat,$q)===false) continue;
 
+      // 대표 메타
+      $company = get_user_meta($u->ID,'bw_company_name',true);
+      $industry_key = get_user_meta($u->ID,'bw_industry',true);
+      $industry_map = bwf_industry_options();
+      $industry = $industry_map[$industry_key] ?? $industry_key;
+      $phone    = get_user_meta($u->ID,'bw_phone',true);
+
       $rows[] = [
-        'id'    => $u->ID,
-        'name'  => $u->display_name ?: $u->user_login,
-        'email' => $u->user_email,
-        't'     => $qs['_saved_at'] ?? '',
-        'data'  => $qs,
-        'flat'  => $flat,
+        'id'      => $u->ID,
+        'name'    => $u->display_name ?: $u->user_login,
+        'email'   => $u->user_email,
+        't'       => $qs['_saved_at'] ?? '',
+        'company' => $company,
+        'industry'=> $industry,
+        'phone'   => $phone,
+        'data'    => $qs,
       ];
     }
   }
@@ -649,238 +1446,218 @@ function bwf_questions_page(){
   $view_page = get_page_by_path('my-question-view');
   $view_url  = $view_page ? get_permalink($view_page) : home_url('/my-question-view/');
 
-  echo '<table class="widefat striped"><thead><tr><th>저장시각</th><th>대표ID</th><th>대표명</th><th>질문 요약/전체</th></tr></thead><tbody>';
+  echo '<table class="widefat striped"><thead><tr>';
+  echo '<th>저장시각</th><th>대표ID</th><th>대표명(이메일)</th><th>회사명</th><th>업종</th><th>휴대폰</th><th>보기</th>';
+  echo '</tr></thead><tbody>';
+
   foreach($rows as $r){
     $qs = $r['data'];
-    $summary = esc_html(mb_substr($r['flat'],0,140)).(mb_strlen($r['flat'])>140?'…':'');
     $goto = esc_url(add_query_arg([
-    'qid' => ($qs['_id'] ?? ''),
-    'uid' => $r['id'],       // ← 대표 유저 ID 추가
+      'qid' => ($qs['_id'] ?? ''),
+      'uid' => $r['id'],
     ], $view_url));
 
     echo '<tr>';
     echo '<td>'.esc_html($r['t']).'</td>';
     echo '<td>'.intval($r['id']).'</td>';
     echo '<td>'.esc_html($r['name']).' <span style="color:#64748b">('.esc_html($r['email']).')</span></td>';
-    echo '<td>';
-      echo '<div style="margin-bottom:4px">'.$summary.'</div>';
-      echo '<details><summary>전체 보기</summary><ul style="margin:8px 0 0 18px; list-style:disc">';
-      $map = [
-        'problem'=>'① 가장 큰 고민','value'=>'② 핵심 가치','ideal_customer'=>'③ 이상적 타겟',
-        'q1'=>'④-1 질문','q2'=>'④-2 질문','q3'=>'④-3 질문',
-        'one_question'=>'⑤ 1:1 한 가지','competitors'=>'⑥ 경쟁/차별'
-      ];
-      foreach($map as $k=>$title){ if(!empty($qs[$k])) echo '<li><b>'.$title.':</b> '.esc_html($qs[$k]).'</li>'; }
-      echo '</ul></details>';
-      echo '<div style="margin-top:6px"><a class="button" href="'.$goto.'" target="_blank">폼 레이아웃으로 보기</a></div>';
-    echo '</td>';
+    echo '<td>'.esc_html($r['company']).'</td>';
+    echo '<td>'.esc_html($r['industry']).'</td>';
+    echo '<td>'.esc_html($r['phone']).'</td>';
+    echo '<td><a class="button button-secondary" href="'.$goto.'" target="_blank">보기</a></td>';
     echo '</tr>';
   }
   echo '</tbody></table></div>';
 }
 
 `$nl
-===== FILE: berrywalk-feedback\includes\representative-form.php (10168 bytes, 201 lines) =====
+===== FILE: berrywalk-feedback\includes\representative-form.php (8517 bytes, 187 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
 
-define('BWF_FEEDBACK_PAGE_SLUG','customer-feedback'); // 필요시 너의 슬러그로 변경
+/**
+ * 대표님 핵심 질문지 – 빌더(JSON) 기반 동적 폼
+ * 저장 구조: 사용자 메타 bwf_questions (연결 키는 질문 id)
+ *   - 단일문항: answers[id] = string
+ *   - 그룹문항: answers[id][subId] = string
+ */
+
+function bwf_owner_builder_get(){
+  $raw = get_option('bwf_owner_builder_json');
+  if(!$raw) $raw = function_exists('bwf_owner_builder_default_json') ? bwf_owner_builder_default_json() : '';
+  $cfg = json_decode($raw, true);
+  if (!is_array($cfg) || empty($cfg['questions'])) {
+    // 안전망
+    $cfg = json_decode(bwf_owner_builder_default_json(), true);
+  }
+  return $cfg;
+}
 
 add_shortcode('bw_owner_form', function(){
   if (!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
 
-  $uid = get_current_user_id();
-  $saved = get_user_meta($uid,'bwf_questions', true) ?: [];
-  $S = function($k){ return isset($_POST[$k]) ? $_POST[$k] : ($saved[$k] ?? ''); };
+  $cfg   = bwf_owner_builder_get();
+  $title = $cfg['title'] ?? '대표님 핵심 질문지';
+  $intro = str_replace('{MIN}', intval($cfg['min_length'] ?? 200), $cfg['intro_html'] ?? '');
+  $globalMin = intval($cfg['min_length'] ?? 200);
 
-  $msg = '';
-  if (isset($_POST['bwf_save_questions']) && wp_verify_nonce($_POST['bwf_nonce'],'bwf_owner_form')) {
-    $data = [
-        'problem'        => sanitize_textarea_field($_POST['problem'] ?? ''),
-        'value'          => sanitize_textarea_field($_POST['value'] ?? ''),
-        'ideal_customer' => sanitize_textarea_field($_POST['ideal_customer'] ?? ''),
-        'q1' => sanitize_textarea_field($_POST['q1'] ?? ''),
-        'q2' => sanitize_textarea_field($_POST['q2'] ?? ''),
-        'q3' => sanitize_textarea_field($_POST['q3'] ?? ''),
-        'one_question'   => sanitize_text_field($_POST['one_question'] ?? ''),
-        'competitors'    => sanitize_textarea_field($_POST['competitors'] ?? ''),
-        '_saved_at'      => current_time('mysql'),
-        '_id'            => uniqid('q_', true),
+  $uid   = get_current_user_id();
+  $saved = get_user_meta($uid, 'bwf_questions', true);
+  if (!is_array($saved)) $saved = [];
+
+  // 저장
+  if (isset($_POST['bwf_save_questions']) && isset($_POST['bwf_nonce']) && wp_verify_nonce($_POST['bwf_nonce'],'bwf_owner_form')) {
+    $answers = [];
+    foreach(($cfg['questions'] ?? []) as $q){
+      $qid = $q['id'];
+      if ($q['type']==='group'){
+        $subAns = [];
+        foreach(($q['sub'] ?? []) as $s){
+          $sid = $s['id'];
+          $subAns[$sid] = sanitize_textarea_field($_POST["{$qid}__{$sid}"] ?? '');
+        }
+        $answers[$qid] = $subAns;
+      } else {
+        $answers[$qid] = sanitize_textarea_field($_POST[$qid] ?? '');
+      }
+    }
+    $data = $answers + [
+      '_saved_at'=> current_time('mysql'),
+      '_id'      => $saved['_id'] ?? uniqid('q_', true),
     ];
-
-    // 최신본 저장
     update_user_meta($uid,'bwf_questions',$data);
-    update_user_meta($uid,'bwf_questions_saved_at',$data['_saved_at']);
 
-    // 히스토리 누적
-    $hist = get_user_meta($uid,'bwf_questions_history', true);
-    if (!is_array($hist)) $hist = [];
-    $hist[] = $data;
-    update_user_meta($uid,'bwf_questions_history',$hist);
-}
-
-  // 피드백 링크
-  $fb_page = get_page_by_path(BWF_FEEDBACK_PAGE_SLUG);
-//   $feedback_url = add_query_arg(['rep'=>$uid], $fb_page ? get_permalink($fb_page) : home_url('/'.BWF_FEEDBACK_PAGE_SLUG.'/'));
+    $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
+    $hist[] = $data; update_user_meta($uid,'bwf_questions_history',$hist);
+  }
 
   wp_enqueue_style('bwf-forms');
-    wp_enqueue_script('bwf-js');
+
+  // 진행률 총합
+  $totalUnits = 0;
+  foreach(($cfg['questions'] ?? []) as $q){ $totalUnits += intval($q['count_as'] ?? 1); }
 
   ob_start(); ?>
-  <div class="bwf-form">
-    <?php echo $msg; ?>
+  <form method="post" class="bwf-form bwf-owner" novalidate id="bwf-owner-form">
+    <?php wp_nonce_field('bwf_owner_form','bwf_nonce'); ?>
 
-       
+    <h2 class="bwf-title"><?php echo esc_html($title); ?></h2>
+    <p class="bwf-help"><?php echo wp_kses_post($intro); ?></p>
 
-    <h3>대표님 핵심 질문지</h3>
-    <p class="bwf-hint">사업의 본질을 파악하고 고객에게 정말 묻고 싶은 질문을 구체화합니다. 각 문항은 <strong>최소 50자</strong>입니다.</p>
+    <!-- 진행 현황 -->
+    <div class="bwf-topwrap">
+      <div class="bwf-top-title">작성 <span class="done">0</span>/<span class="total"><?php echo intval($totalUnits); ?></span>문항</div>
+      <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
+    </div>
 
-    <form method="post" class="bwf-grid bwf-onecol">
+    <?php foreach(($cfg['questions'] ?? []) as $q): ?>
+      <?php
+        $qid  = $q['id'];
+        $type = $q['type'];
+        $label= $q['label'] ?? '';
+        $desc = $q['desc_html'] ?? '';
+        $ex   = $q['examples_html'] ?? '';
+        $req  = ($q['required']!==false);
+        $min  = ($q['minlength'] === '' || $q['minlength'] === null) ? ($type==='group'?0:$globalMin) : intval($q['minlength']);
+      ?>
+      <div class="bwf-field bwf-q" data-qid="<?php echo esc_attr($qid); ?>" data-type="<?php echo esc_attr($type); ?>" data-count="<?php echo intval($q['count_as']??1); ?>">
+        <?php if($type!=='group'): ?>
+          <label><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></label>
+          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
+          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
 
-         <div class="bwf-sticky bwf-col-full">
-        <div class="bwf-topcount">작성 <span class="done">0</span>/<span class="total">0</span>문항</div>
-        <div id="bwf-progress"><div class="bar"></div><span class="label"></span></div>
-        </div>
+          <?php if($type==='text'): ?>
+            <input type="text" name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?> value="<?php echo isset($saved[$qid])?esc_attr($saved[$qid]):''; ?>">
+          <?php else: // textarea ?>
+            <textarea name="<?php echo esc_attr($qid); ?>" <?php echo $req?'required':''; ?> <?php echo $min>0?'data-minlength="'.$min.'"':''; ?>><?php echo isset($saved[$qid])?esc_textarea($saved[$qid]):''; ?></textarea>
+          <?php endif; ?>
 
-      <?php wp_nonce_field('bwf_owner_form','bwf_nonce'); ?>
+          <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $min>0?' / '.$min.'자':''; ?></div>
 
-      <!-- 본질 질문 -->
-      <!-- ① 현재 비즈니스에서 가장 큰 고민 -->
-        <label>1. 현재 비즈니스에서 가장 큰 고민은 무엇인가요? <span class="bwf-required">*</span></label>
-        <div class="bwf-help">
-        <div>예시: “신규 고객 유입이 너무 어렵습니다. 광고 효율이 안 나옵니다.”, “재구매율이 낮아 성장이 정체돼요.”</div>
-        </div>
-        <textarea name="problem" required data-minlength="50"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
+        <?php else: // group ?>
+          <h3 class="bwf-h3"><?php echo esc_html($label); ?> <?php if($req): ?><span class="bwf-required">*</span><?php endif; ?></h3>
+          <?php if($desc): ?><p class="bwf-desc"><?php echo wp_kses_post($desc); ?></p><?php endif; ?>
+          <?php if($ex): ?><div class="bwf-examples"><?php echo wp_kses_post($ex); ?></div><?php endif; ?>
 
-        <!-- ② 어떤 문제를 해결하나요 -->
-        <label>2. 우리 서비스가 고객의 ‘어떤 문제’를 해결하나요? <span class="bwf-required">*</span></label>
-        <div class="bwf-help">
-        <div>설명: 고객에게 주는 가장 중요한 ‘이점/해결’을 한두 문장으로.</div>
-        <div>예시: “바쁜 직장인에게 집밥처럼 건강한 한 끼 배달”, “복잡한 서류 작업을 5분 만에 끝내줌”.</div>
-        </div>
-        <textarea name="value" required data-minlength="50"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <!-- ③ 누가 이용해야 하나요/왜 선택하나요 -->
-        <label>3. 이 서비스를 ‘누가’ 이용해야 하나요? 왜 우리를 선택하나요? <span class="bwf-required">*</span></label>
-        <div class="bwf-help">
-        <div>설명: 이상적 타겟 + 선택 이유를 구체적으로.</div>
-        <div>예시: “운동은 하고 싶지만 시간/비용이 부족한 20대 대학생 — 15분 홈트+저렴한 구독료”.</div>
-        </div>
-        <textarea name="ideal_customer" required data-minlength="50"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <!-- ④ 고객에게 물어보고 싶은 3가지 (세 칸이 모두 채워지면 1문항으로 계산) -->
-        <h3 class="bwf-col-full">4. 고객에게 물어보고 싶은 3가지</h3>
-
-        <label>질문 1 <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “우리 서비스를 알게 된 경로는 무엇이었나요?”</div></div>
-        <textarea name="q1" data-group="ask3" required data-minlength="50" rows="4"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <label>질문 2 <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “결심 포인트는 무엇이었나요?”</div></div>
-        <textarea name="q2" data-group="ask3" required data-minlength="50" rows="4"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <label>질문 3 <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “사용 중 가장 불편했던 점은?”</div></div>
-        <textarea name="q3" data-group="ask3" required data-minlength="50" rows="4"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <!-- ⑤ 1:1 한 가지 -->
-        <label>5. 타겟 고객 1:1로 단 한 가지를 묻는다면? <span class="bwf-required">*</span></label>
-        <div class="bwf-help"><div>예시: “처음 사용 후 무엇이 가장 달라졌나요?”</div></div>
-        <input type="text" name="one_question" placeholder="예: 우리의 어떤 점이 당신 문제를 가장 잘 해결했나요?">
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-        <!-- ⑥ 경쟁/차별 -->
-        <label>6. 경쟁사와의 차별점은? <span class="bwf-required">*</span></label>
-        <div class="bwf-help">
-        <div>설명: 주요 경쟁사 1~2곳과 비교해 ‘가격/품질/속도/편의’ 등 차이를 적시.</div>
-        <div>예시: “A는 싸지만 품질이 낮고, B는 비싸지만 퀄리티가 높다 → 우리는 적정 가격+높은 만족”.</div>
-        </div>
-        <textarea name="competitors" required data-minlength="50"></textarea>
-        <div class="bwf-helper"><span class="bwf-counter">0</span> / 50자</div>
-
-
-      <div class="bwf-col-full bwf-actions">
-        <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
+          <?php foreach(($q['sub'] ?? []) as $s): 
+            $sid = $s['id']; $slab = $s['label'] ?? ''; $ph = $s['placeholder'] ?? '';
+            $sreq = ($s['required']!==false); $smin = intval($s['minlength'] ?? 0);
+            $name = "{$qid}__{$sid}";
+            $val  = (isset($saved[$qid]) && is_array($saved[$qid]) && isset($saved[$qid][$sid])) ? $saved[$qid][$sid] : '';
+          ?>
+            <label><?php echo esc_html($slab); ?> <?php if($sreq): ?><span class="bwf-required">*</span><?php endif; ?></label>
+            <textarea name="<?php echo esc_attr($name); ?>" rows="4" placeholder="<?php echo esc_attr($ph); ?>" <?php echo $sreq?'required':''; ?> <?php echo $smin>0?'data-minlength="'.$smin.'"':''; ?>><?php echo esc_textarea($val); ?></textarea>
+            <div class="bwf-helper"><span class="bwf-counter">0</span><?php echo $smin>0?' / '.$smin.'자':''; ?></div>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
-      <script>
-        document.addEventListener('DOMContentLoaded', function(){
-        const wrap = document.currentScript.closest('.bwf-form');
-        const fields = Array.from(wrap.querySelectorAll('textarea[data-minlength], input[data-minlength]'));
-        const progress = wrap.querySelector('#bwf-progress .bar');
-        const label    = wrap.querySelector('#bwf-progress .label');
-        const doneEl   = wrap.querySelector('.bwf-topcount .done');
-        const totEl    = wrap.querySelector('.bwf-topcount .total');
+    <?php endforeach; ?>
 
-        // 문항 정의: 일반 + ask3(3칸=1문항)
-        const groups = {};
-        const items = fields.map(el=>{
-            const min = parseInt(el.getAttribute('data-minlength')||'0',10);
-            const g   = el.getAttribute('data-group')||null;
-            if (g) { groups[g] = groups[g]||[]; groups[g].push({el,min}); }
-            return {el, min, group:g};
-        });
+    <div class="bwf-actions">
+      <button type="submit" class="bwf-btn" name="bwf_save_questions">저장</button>
+    </div>
 
-        // 총 문항 수 계산
-        const total = Object.keys(groups).length + items.filter(x=>!x.group).length;
-        if (totEl) totEl.textContent = total;
+    <script>
+    (function(){
+      const f = document.getElementById('bwf-owner-form');
+      const total = Array.from(f.querySelectorAll('.bwf-q')).reduce((n,q)=> n + (parseInt(q.dataset.count||'1',10)||1), 0);
+      f.querySelector('.total').textContent = total;
+      const doneEl = f.querySelector('.done');
+      const bar    = f.querySelector('#bwf-progress .bar');
+      const label  = f.querySelector('#bwf-progress .label');
 
-        function countOK(){
-            // 그룹 문항(ask3)은 세 칸 모두 기준 충족 시 1로 카운트
-            let ok = 0;
-
-            // 비그룹
-            items.filter(x=>!x.group).forEach(x=>{
-            const len = (x.el.value||'').trim().length;
-            const box = x.el.nextElementSibling?.classList.contains('bwf-helper') ? x.el.nextElementSibling : null;
-            if (box) {
-                const c = box.querySelector('.bwf-counter'); if (c) c.textContent = len;
-                box.classList.toggle('ok', len>=x.min);
-            }
-            x.el.setCustomValidity(len>=x.min ? '' : (x.min+'자 이상 입력해주세요'));
-            if (len>=x.min) ok++;
-            });
-
-            // 그룹(ask3)
-            Object.values(groups).forEach(arr=>{
-            const allOK = arr.every(x => ((x.el.value||'').trim().length >= x.min));
-            if (allOK) ok++;
-            // 각 칸의 카운터/valid 처리
-            arr.forEach(x=>{
-                const len = (x.el.value||'').trim().length;
-                const box = x.el.nextElementSibling?.classList.contains('bwf-helper') ? x.el.nextElementSibling : null;
-                if (box) {
-                const c = box.querySelector('.bwf-counter'); if (c) c.textContent = len;
-                box.classList.toggle('ok', len>=x.min);
-                }
-                x.el.setCustomValidity(len>=x.min ? '' : (x.min+'자 이상 입력해주세요'));
-            });
-            });
-
-            // 진행바/카운트
-            const pct = Math.round((ok/total)*100);
-            if (progress) progress.style.width = pct+'%';
-            if (label)    label.textContent   = pct+'%';
-            if (doneEl)   doneEl.textContent  = ok;
+      function setCounter(el, min){
+        const helper = el.nextElementSibling && el.nextElementSibling.classList.contains('bwf-helper') ? el.nextElementSibling : null;
+        const len = (el.value||'').trim().length;
+        if (helper){
+          const c = helper.querySelector('.bwf-counter'); if(c) c.textContent = String(len);
+          helper.classList.toggle('ok', min ? len>=min : !!len);
         }
+        if (min){
+          el.setCustomValidity(len>=min ? '' : (min+'자 이상 입력해주세요'));
+        } else {
+          if (el.required) el.setCustomValidity(len>0 ? '' : '필수 입력입니다.');
+        }
+      }
 
-        fields.forEach(el=>el.addEventListener('input', countOK));
-        countOK();
+      function isQuestionDone(q){
+        const fields = q.querySelectorAll('textarea, input[type="text"]');
+        let allOk = true;
+        fields.forEach(el=>{
+          const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+          const len = (el.value||'').trim().length;
+          const req = el.hasAttribute('required');
+          if (min>0){ if(len<min) allOk=false; }
+          else if (req){ if(len===0) allOk=false; }
         });
-        </script>
+        return allOk;
+      }
 
+      function render(){
+        let done = 0;
+        const qs = Array.from(f.querySelectorAll('.bwf-q'));
+        qs.forEach(q=>{
+          if (isQuestionDone(q)) done += (parseInt(q.dataset.count||'1',10)||1);
+        });
+        const pct = Math.round(done/total*100);
+        doneEl.textContent = done;
+        bar.style.width = pct+'%';
+        label.textContent = pct+'%';
+      }
 
-    </form>
-
-   
-  </div>
-  <?php return ob_get_clean();
+      const inputs = Array.from(f.querySelectorAll('textarea, input[type="text"]'));
+      inputs.forEach(el=>{
+        const min = parseInt(el.getAttribute('data-minlength')||'0',10);
+        setCounter(el, min);
+        el.addEventListener('input', ()=>{ setCounter(el, min); render(); });
+      });
+      render();
+    })();
+    </script>
+  </form>
+  <?php
+  return ob_get_clean();
 });
 
 `$nl
@@ -1084,35 +1861,80 @@ add_shortcode('bw_feedback_form', function($atts){
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\signup.php (11919 bytes, 279 lines) =====
+===== FILE: berrywalk-feedback\includes\signup.php (21235 bytes, 472 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
 
-// ❌ 잘못된 helpers.php → ✅ helper.php
+/**
+ * Berrywalk Feedback - Signup Shortcodes (대표 / 피드백자)
+ * 변경 핵심
+ * - 대표 회원가입 시 role 슬러그를 'bw_owner' 로 강제(하위호환: 'representative'도 허용)
+ * - 가입 직후에도 set_role('bw_owner')로 확정
+ * - user meta 'bw_owner' 플래그 저장(기본 'Y' — 필요하면 하단 상수로 변경)
+ * - "*표시는 필수 입력" 상단 고정, 타이틀 중앙, 휴대폰 자동 하이픈 + 패턴검증, 필수 누락 팝업/하이라이트
+ */
+
 require_once __DIR__ . '/helper.php';
 
-// 대표 회원가입
-add_shortcode('bwf_signup_representative', function () {
-  // 필요한 CSS/JS 로드
-  wp_enqueue_style('bwf-forms');
+/* ─────────────────────────────────────────────────────────────────────────────
+   역할 보장: bw_owner 역할이 없으면 생성 (권한: read 만)
+   ───────────────────────────────────────────────────────────────────────────── */
+add_action('init', function(){
+  if (!get_role('bw_owner')) {
+    add_role('bw_owner', '대표', ['read' => true]);
+  }
+});
 
+/* 메타 플래그 기본값 (원하면 바꿔도 됨) */
+if (!defined('BWF_BW_OWNER_META_VALUE')) {
+  define('BWF_BW_OWNER_META_VALUE', 'Y');
+}
+
+/* 공통 모달 에러 출력 스크립트 */
+function bwf_print_modal_error_script($msg){
+  $m = esc_js($msg);
+  echo "<script>
+    document.addEventListener('DOMContentLoaded', function(){
+      var modal = document.getElementById('bwf-modal');
+      if(!modal) return;
+      modal.querySelector('.bwf-modal__msg').textContent = '{$m}';
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden','false');
+      var ok = modal.querySelector('#bwf-modal-ok');
+      if(ok) ok.addEventListener('click', function(){
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden','true');
+      });
+    });
+  </script>";
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   대표 회원가입 (역할: bw_owner 고정)
+   ───────────────────────────────────────────────────────────────────────────── */
+add_shortcode('bwf_signup_representative', function () {
+  wp_enqueue_style('bwf-forms');
 
   if (is_user_logged_in()) {
     $u = wp_get_current_user();
     return '<div class="bwf-form"><p><strong>'.bwf_esc($u->user_login).'</strong>로 로그인됨.</p>
-            <p><a href="'.esc_url(home_url('/owner-questions/')).'">질문 등록하기</a></p></div>';
+            <p class="bwf-actions"><a class="bwf-btn" href="'.esc_url(home_url('/owner-questions/')).'">질문 등록하기</a></p></div>';
   }
 
-  $nonce = wp_create_nonce('bwf_signup_rep');
+  $nonce = wp_create_nonce('bwf_signup_rep'); // 기존 nonce 재사용
   $S = function($k,$d=''){ return isset($_POST[$k]) ? esc_attr($_POST[$k]) : $d; };
 
   ob_start(); ?>
-  <form method="post" class="bwf-form bwf-grid" novalidate>
-    <input type="hidden" name="bwf_role" value="representative">
+  <form method="post" class="bwf-form bwf-grid" novalidate id="bwf-signup-rep">
+    <!-- 역할을 bw_owner로 고정 -->
+    <input type="hidden" name="bwf_role" value="bw_owner">
     <input type="hidden" name="bwf_nonce" value="<?php echo esc_attr($nonce); ?>">
 
-    <!-- 로그인 정보: 2열 정렬 / 아이디를 가장 앞에 -->
+    <h2 class="bwf-title bwf-col-full">대표 회원가입</h2>
+    <p class="bwf-required-note bwf-col-full">* 표시는 필수 입력</p>
+
+    <!-- 로그인 정보 -->
     <div>
       <label>아이디(영문/숫자) <span class="bwf-required">*</span></label>
       <input type="text" name="user_login" value="<?php echo $S('user_login'); ?>" pattern="[A-Za-z0-9_\.\-]{4,32}" required>
@@ -1142,7 +1964,7 @@ add_shortcode('bwf_signup_representative', function () {
         <?php foreach(bwf_industry_options() as $k=>$v){
           $sel = selected($S('bw_industry'), $k, false);
           echo "<option value='".esc_attr($k)."' $sel>".esc_html($v)."</option>";
-        }?>
+        } ?>
       </select>
     </div>
     <div>
@@ -1162,13 +1984,13 @@ add_shortcode('bwf_signup_representative', function () {
         <?php foreach(bwf_source_options() as $k=>$v){
           $sel = selected($S('bw_discover'), $k, false);
           echo "<option value='".esc_attr($k)."' $sel>".esc_html($v)."</option>";
-        }?>
+        } ?>
       </select>
       <input type="text" name="source_etc" id="bwf-source-etc" placeholder="기타 경로" style="display:none;" value="<?php echo $S('source_etc'); ?>">
     </div>
     <div>
       <label>휴대폰 번호 <span class="bwf-required">*</span></label>
-        <input type="tel" name="bw_phone" id="bwf-phone"
+      <input type="tel" name="bw_phone" id="bwf-phone"
         inputmode="numeric" autocomplete="tel"
         placeholder="010-1234-5678"
         maxlength="13" pattern="^010-\d{4}-\d{4}$" required>
@@ -1180,7 +2002,7 @@ add_shortcode('bwf_signup_representative', function () {
 
     <div class="bwf-col-full"><hr></div>
 
-    <!-- 소셜 링크 -->
+    <!-- 소셜 링크(옵션) -->
     <div class="bwf-col-full"><strong>소셜 링크(있으면 입력)</strong></div>
     <?php foreach(bwf_social_fields() as $key=>$label): ?>
       <div>
@@ -1190,29 +2012,118 @@ add_shortcode('bwf_signup_representative', function () {
     <?php endforeach; ?>
 
     <div class="bwf-col-full bwf-actions">
-      <?php if(!empty($_POST['bwf_error'])): ?>
-        <div class="bwf-error-text"><?php echo bwf_esc($_POST['bwf_error']); ?></div>
-      <?php endif; ?>
       <button type="submit" name="bwf_register">회원가입</button>
-      <p class="bwf-hint">* 표시는 필수 입력</p>
     </div>
+
+    <!-- 팝업 모달 -->
+    <div class="bwf-modal" id="bwf-modal" aria-hidden="true">
+      <div class="bwf-modal__card">
+        <h3>입력이 필요한 항목이 있어요</h3>
+        <p class="bwf-modal__msg">필수 항목을 확인해 주세요.</p>
+        <div class="bwf-modal__actions">
+          <button type="button" class="bwf-btn" id="bwf-modal-ok">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      const f   = document.getElementById('bwf-signup-rep');
+      const src = f.querySelector('#bwf-source');
+      const etc = f.querySelector('#bwf-source-etc');
+      const tel = f.querySelector('#bwf-phone');
+      const modal = f.querySelector('#bwf-modal');
+      const okBtn = f.querySelector('#bwf-modal-ok');
+
+      function toggleEtc(){
+        etc.style.display = (src && src.value === 'etc') ? 'block' : 'none';
+        if (src && src.value !== 'etc') etc.value = '';
+      }
+      if (src){ src.addEventListener('change', toggleEtc); toggleEtc(); }
+
+      /* 휴대폰 자동 하이픈 */
+      function formatPhone(v){
+        const d = String(v||'').replace(/\D/g,'').slice(0,11);
+        if (d.startsWith('010')) {
+          if (d.length >= 11) return d.replace(/^(\d{3})(\d{4})(\d{4}).*$/,'$1-$2-$3');
+          if (d.length >= 7)  return d.replace(/^(\d{3})(\d{0,4})(\d{0,4}).*$/,(m,a,b,c)=> a+(b?'-'+b:'')+(c?'-'+c:''));
+          if (d.length >= 4)  return d.replace(/^(\d{3})(\d{0,4}).*$/,(m,a,b)=> a+'-'+b);
+        }
+        return d;
+      }
+      if (tel){
+        tel.addEventListener('input', ()=>{
+          const before = tel.value;
+          tel.value = formatPhone(before);
+          tel.setSelectionRange(tel.value.length, tel.value.length);
+        });
+      }
+
+      /* 모달 */
+      function openModal(msg){
+        modal.querySelector('.bwf-modal__msg').textContent = msg || '필수 항목을 확인해 주세요.';
+        modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+      }
+      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+      okBtn.addEventListener('click', closeModal);
+
+      /* 제출 전 클라이언트 검증 */
+      f.addEventListener('submit', function(ev){
+        const req = Array.from(f.querySelectorAll('[required]'));
+        let firstInvalid = null;
+
+        req.forEach(el=>{
+          el.classList.remove('bwf-invalid');
+          // 전화번호 패턴 강제
+          if (el.name==='bw_phone' && !/^010-\d{4}-\d{4}$/.test(el.value)) {
+            el.setCustomValidity('휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.');
+          } else {
+            el.setCustomValidity('');
+          }
+          if(!el.checkValidity()){
+            if(!firstInvalid) firstInvalid = el;
+            el.classList.add('bwf-invalid');
+          }
+        });
+
+        if (firstInvalid){
+          ev.preventDefault();
+          openModal('누락된 필수 항목을 입력해 주세요.');
+          firstInvalid.scrollIntoView({behavior:'smooth', block:'center'});
+          firstInvalid.focus({preventScroll:true});
+        }
+      });
+    })();
+    </script>
   </form>
-  <?php return ob_get_clean();
+  <?php
+    if (!empty($_POST['bwf_error'])) {
+      bwf_print_modal_error_script($_POST['bwf_error']);
+    }
+    return ob_get_clean();
 });
 
-/** 피드백자 회원가입(간단) */
+/* ─────────────────────────────────────────────────────────────────────────────
+   피드백자 회원가입 (간단)
+   ───────────────────────────────────────────────────────────────────────────── */
 add_shortcode('bwf_signup_feedback', function () {
+  wp_enqueue_style('bwf-forms');
+
   if (is_user_logged_in()) {
     $u = wp_get_current_user();
     return '<div class="bwf-form"><p><strong>' . bwf_esc($u->user_login) . '</strong>로 로그인됨.</p></div>';
   }
+
   $nonce = wp_create_nonce('bwf_signup_fb');
   $S = function($k,$d=''){ return isset($_POST[$k]) ? esc_attr($_POST[$k]) : $d; };
 
   ob_start(); ?>
-  <form method="post" class="bwf-form bwf-grid" novalidate>
+  <form method="post" class="bwf-form bwf-grid" novalidate id="bwf-signup-fb">
     <input type="hidden" name="bwf_role" value="feedback_provider">
     <input type="hidden" name="bwf_nonce" value="<?php echo esc_attr($nonce); ?>">
+
+    <h2 class="bwf-title bwf-col-full">피드백 회원가입</h2>
+    <p class="bwf-required-note bwf-col-full">* 표시는 필수 입력</p>
 
     <div>
       <label>이메일 <span class="bwf-required">*</span></label>
@@ -1249,7 +2160,7 @@ add_shortcode('bwf_signup_feedback', function () {
       <select name="experience" required>
         <option value="">선택</option>
         <option value="yes" <?php selected($S('experience'),'yes'); ?>>예</option>
-        <option value="no"  <?php selected($S('experience'),'no'); ?>>아니오</option>
+        <option value="no"  <?php selected($S('experience'),'no');  ?>>아니오</option>
       </select>
     </div>
     <div>
@@ -1259,162 +2170,224 @@ add_shortcode('bwf_signup_feedback', function () {
         <?php foreach(bwf_source_options() as $k=>$v){
           $sel = selected($S('source'), $k, false);
           echo "<option value='".esc_attr($k)."' $sel>".esc_html($v)."</option>";
-        }?>
+        } ?>
       </select>
       <input type="text" name="source_etc" id="bwf-source-etc-fb" placeholder="기타 경로" style="display:none;" value="<?php echo $S('source_etc'); ?>">
     </div>
 
     <div class="bwf-col-full bwf-actions">
-      <?php if(!empty($_POST['bwf_error'])): ?>
-        <div class="bwf-error-text"><?php echo bwf_esc($_POST['bwf_error']); ?></div>
-      <?php endif; ?>
       <button type="submit" name="bwf_register">회원가입</button>
-      <p class="bwf-hint">* 표시는 필수 입력</p>
     </div>
+
+    <!-- 팝업 모달 -->
+    <div class="bwf-modal" id="bwf-modal" aria-hidden="true">
+      <div class="bwf-modal__card">
+        <h3>입력이 필요한 항목이 있어요</h3>
+        <p class="bwf-modal__msg">필수 항목을 확인해 주세요.</p>
+        <div class="bwf-modal__actions">
+          <button type="button" class="bwf-btn" id="bwf-modal-ok">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      const f   = document.getElementById('bwf-signup-fb');
+      const src = f.querySelector('#bwf-source-fb');
+      const etc = f.querySelector('#bwf-source-etc-fb');
+      const modal = f.querySelector('#bwf-modal');
+      const okBtn = f.querySelector('#bwf-modal-ok');
+
+      function toggleEtc(){
+        etc.style.display = (src && src.value === 'etc') ? 'block' : 'none';
+        if (src && src.value !== 'etc') etc.value = '';
+      }
+      if (src){ src.addEventListener('change', toggleEtc); toggleEtc(); }
+
+      function openModal(msg){
+        modal.querySelector('.bwf-modal__msg').textContent = msg || '필수 항목을 확인해 주세요.';
+        modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+      }
+      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+      okBtn.addEventListener('click', closeModal);
+
+      f.addEventListener('submit', function(ev){
+        const req = Array.from(f.querySelectorAll('[required]'));
+        let firstInvalid = null;
+        req.forEach(el=>{
+          el.classList.remove('bwf-invalid');
+          el.setCustomValidity('');
+          if (!el.checkValidity()){
+            if (!firstInvalid) firstInvalid = el;
+            el.classList.add('bwf-invalid');
+          }
+        });
+        if (firstInvalid){
+          ev.preventDefault();
+          openModal('누락된 필수 항목을 입력해 주세요.');
+          firstInvalid.scrollIntoView({behavior:'smooth', block:'center'});
+          firstInvalid.focus({preventScroll:true});
+        }
+      });
+    })();
+    </script>
   </form>
-  <?php return ob_get_clean();
+  <?php
+    if (!empty($_POST['bwf_error'])) {
+      bwf_print_modal_error_script($_POST['bwf_error']);
+    }
+    return ob_get_clean();
 });
 
-/** 폼 처리 */
+/* ─────────────────────────────────────────────────────────────────────────────
+   서버 사이드 처리 (대표/피드백 공통)
+   ───────────────────────────────────────────────────────────────────────────── */
 add_action('init', function(){
   if (!isset($_POST['bwf_register'])) return;
 
   $role  = sanitize_text_field($_POST['bwf_role'] ?? '');
   $nonce = sanitize_text_field($_POST['bwf_nonce'] ?? '');
-  if ($role === 'representative' && !wp_verify_nonce($nonce,'bwf_signup_rep')) return;
+
+  // 대표(신규: bw_owner / 구버전: representative) 둘 다 허용
+  $is_owner = in_array($role, ['bw_owner', 'representative'], true);
+
+  if ($is_owner && !wp_verify_nonce($nonce,'bwf_signup_rep')) return;
   if ($role === 'feedback_provider' && !wp_verify_nonce($nonce,'bwf_signup_fb')) return;
 
-  // 공통
+  // 공통 필드
   $user_login = sanitize_user($_POST['user_login'] ?? '');
   $user_email = sanitize_email($_POST['user_email'] ?? '');
   $user_pass  = $_POST['user_pass'] ?? '';
   $first_name = sanitize_text_field($_POST['first_name'] ?? '');
 
-  // 서버 검증
+  // 필수 검사
   $err = '';
   if (!$user_login || !$user_email || !$user_pass || !$first_name) $err = '필수 항목이 누락되었습니다.';
   if (!$err && username_exists($user_login)) $err = '이미 사용 중인 아이디입니다.';
   if (!$err && email_exists($user_email))    $err = '이미 등록된 이메일입니다.';
 
-  if ($role === 'representative') {
+  if ($is_owner) {
     foreach (['bw_company_name','bw_industry','bw_employees','bw_contact_window','bw_discover','bw_phone'] as $k) {
       if (empty($_POST[$k])) { $err = '필수 항목이 누락되었습니다.'; break; }
+    }
+    // 휴대폰 정규화 및 형식 체크
+    if (!$err) {
+      $raw = (string)($_POST['bw_phone'] ?? '');
+      $digits = preg_replace('/\D+/','',$raw);
+      if (strlen($digits)!==11 || strpos($digits,'010')!==0) {
+        $_POST['bwf_error'] = '휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.'; return;
+      }
+      $_POST['bw_phone'] = preg_replace('/^(\d{3})(\d{4})(\d{4})$/','$1-$2-$3',$digits);
     }
   } else {
     foreach (['age_range','gender','experience','source'] as $k) {
       if (empty($_POST[$k])) { $err = '필수 항목이 누락되었습니다.'; break; }
     }
   }
-  if ($role === 'representative') {
- $raw = isset($_POST['bw_phone']) ? $_POST['bw_phone'] : '';
-$digits = preg_replace('/\D+/','',$raw);
-if (strlen($digits)!==11 || strpos($digits,'010')!==0) {
-  $_POST['bwf_error'] = '휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.'; return;
-}
-$_POST['bw_phone'] = preg_replace('/^(\d{3})(\d{4})(\d{4})$/','$1-$2-$3',$digits);
-}
 
-  if ($err) {
-    $_POST['bwf_error'] = $err; // sticky 에러 표시
-    return;
-  }
+  if ($err) { $_POST['bwf_error'] = $err; return; }
 
-  // 계정 생성
+  // 계정 생성 (대표는 role 필드가 뭐로 오든 최종적으로 'bw_owner'로 세팅)
+  $target_role = $is_owner ? 'bw_owner' : 'feedback_provider';
   $uid = wp_insert_user([
     'user_login' => $user_login,
     'user_email' => $user_email,
     'user_pass'  => $user_pass,
     'first_name' => $first_name,
-    'role'       => $role,
+    'role'       => $target_role,
     'user_url'   => esc_url_raw($_POST['user_url'] ?? '')
   ]);
   if (is_wp_error($uid)) { $_POST['bwf_error'] = $uid->get_error_message(); return; }
-
-  // 메타 저장 (WP-Members 필드 네이밍 반영)
-  $save = function($key){
-    if(isset($_POST[$key])) update_user_meta(get_current_user_id() ?: 0, $key, sanitize_text_field($_POST[$key]));
-  };
 
   // 로그인 세션
   wp_set_current_user($uid);
   wp_set_auth_cookie($uid);
 
-  // 대표 메타
-  if ($role === 'representative') {
-    $uid = get_current_user_id();
-    $meta_keys = ['bw_company_name','bw_industry','bw_employees','bw_contact_window','bw_discover','bw_phone'];
-    foreach($meta_keys as $k) $save($k);
+  // 대표 역할 확정 + 메타 플래그
+  if ($is_owner) {
+    $u = new WP_User($uid);
+    $u->set_role('bw_owner'); // 최종 보정
 
-    // discover 기타 처리
-    if (isset($_POST['bw_discover']) && $_POST['bw_discover']=='etc' && !empty($_POST['source_etc'])) {
+    update_user_meta($uid, 'bw_owner', BWF_BW_OWNER_META_VALUE); // 플래그 저장
+
+    $meta_keys = ['bw_company_name','bw_industry','bw_employees','bw_contact_window','bw_discover','bw_phone'];
+    foreach($meta_keys as $k){
+      if(isset($_POST[$k])) update_user_meta($uid,$k,sanitize_text_field($_POST[$k]));
+    }
+    if (isset($_POST['bw_discover']) && $_POST['bw_discover']==='etc' && !empty($_POST['source_etc'])) {
       update_user_meta($uid,'bw_discover','etc: '.sanitize_text_field($_POST['source_etc']));
     }
-
     // 소셜
-    foreach (bwf_social_fields() as $k=>$label) if(isset($_POST[$k])) update_user_meta($uid,$k,esc_url_raw($_POST[$k]));
-  } else {
-    foreach (['age_range','gender','experience','source'] as $k) $save($k);
-    if (isset($_POST['source']) && $_POST['source']=='etc' && !empty($_POST['source_etc'])) {
+    foreach (bwf_social_fields() as $k=>$label) {
+      if(isset($_POST[$k]) && $_POST[$k]!== '') update_user_meta($uid,$k,esc_url_raw($_POST[$k]));
+    }
+  } else { // 피드백자
+    foreach (['age_range','gender','experience','source'] as $k){
+      if(isset($_POST[$k])) update_user_meta($uid,$k,sanitize_text_field($_POST[$k]));
+    }
+    if (isset($_POST['source']) && $_POST['source']==='etc' && !empty($_POST['source_etc'])) {
       update_user_meta($uid,'source','etc: '.sanitize_text_field($_POST['source_etc']));
     }
   }
 
-  // 성공 리디렉트: 대표는 /info-feedback 으로 이동
-  $role  = sanitize_text_field($_POST['bwf_role'] ?? '');
-  $dest = ($role==='representative') ? home_url('/info-feedback/?join=ok') : home_url('/?join=ok');
+  // 성공 리디렉트
+  $dest = $is_owner ? home_url('/info-feedback/?join=ok') : home_url('/?join=ok');
   wp_redirect($dest); exit;
 });
 
 `$nl
-===== FILE: berrywalk-feedback\includes\view-question.php (1997 bytes, 50 lines) =====
+===== FILE: berrywalk-feedback\includes\view-question.php (1907 bytes, 53 lines) =====
 `$ext
 <?php
 if (!defined('ABSPATH')) exit;
 
-add_shortcode('bw_view_question', function($atts){
-  if(!is_user_logged_in()) return '<div class="bwf-form"><p>로그인 후 이용해주세요.</p></div>';
-
-  // ★ 관리자면 uid 파라미터 허용
-  $current = get_current_user_id();
-  $can_admin = current_user_can('list_users') || current_user_can('manage_options');
-  $uid = $can_admin ? intval($_GET['uid'] ?? $current) : $current;
+add_shortcode('bw_view_question', function(){
+  wp_enqueue_style('bwf-forms'); // 공용 스타일
 
   $qid = sanitize_text_field($_GET['qid'] ?? '');
+  $uid = intval($_GET['uid'] ?? 0);
+  if (!$qid || !$uid) return '<div class="bwf-form"><p>잘못된 접근입니다.</p></div>';
 
-  // 스타일 적용 (리스트/레이아웃 깔끔하게)
-  wp_enqueue_style('bwf-forms');
-
-  // 현재본 + 히스토리에서 qid 검색 (대상: $uid)
-  $cands = [];
   $now  = get_user_meta($uid,'bwf_questions', true);
   $hist = get_user_meta($uid,'bwf_questions_history', true); if(!is_array($hist)) $hist=[];
-  if(is_array($now) && $now) $cands[]=$now; $cands=array_merge($cands,$hist);
+  $items=[]; if(is_array($now)&&$now) $items[]=$now; $items=array_merge($items,$hist);
 
-  $found = null;
-  foreach($cands as $it){ if(($it['_id'] ?? '') === $qid){ $found = $it; break; } }
-  if(!$found) return '<div class="bwf-form"><p>해당 데이터가 없습니다.</p></div>';
+  $target = null;
+  foreach($items as $it){ if(($it['_id'] ?? '') === $qid){ $target = $it; break; } }
+  if (!$target) return '<div class="bwf-form"><p>대상을 찾을 수 없습니다.</p></div>';
 
-  ob_start();
-  echo '<div class="bwf-form"><h2>저장된 대표 질문</h2><div class="grid-1">';
+  ob_start(); ?>
+  <div class="bwf-view">
+    <div class="bwf-card">
+      <h2 class="bwf-title">대표 질문 보기</h2>
+      <ul class="bwf-kv">
+        <li><b>저장 시각</b><span><?=esc_html($target['_saved_at'] ?? '')?></span></li>
+        <li><b>대표 ID</b><span><?=intval($uid)?></span></li>
+      </ul>
+    </div>
 
-  $F = [
-    'problem'=>'1. 현재 비즈니스에서 가장 큰 고민은 무엇인가요?',
-    'value'=>'2. 어떤 문제를 해결하나요?',
-    'ideal_customer'=>'3. 누가 이용/왜 선택?',
-    'q1'=>'4-1. 맞춤 질문','q2'=>'4-2. 맞춤 질문','q3'=>'4-3. 맞춤 질문',
-    'one_question'=>'5. 1:1 한 가지','competitors'=>'6. 경쟁/차별'
-  ];
-  foreach($F as $k=>$lab){
-    echo '<div class="bwf-col-full" style="margin:10px 0 14px">';
-    echo '<label>'.$lab.'</label>';
-    if ($k==='one_question'){
-      echo '<input type="text" readonly value="'.esc_attr($found[$k]??'').'">';
-    } else {
-      echo '<textarea readonly>'.esc_textarea($found[$k]??'').'</textarea>';
-    }
-    echo '</div>';
-  }
-  echo '</div></div>';
+    <div class="bwf-card">
+      <h3>내용</h3>
+      <ul class="bwf-bullets">
+        <?php
+        $map = [
+          'problem'=>'① 가장 큰 고민','value'=>'② 핵심 가치','ideal_customer'=>'③ 이상적 타겟',
+          'q1'=>'④-1 질문','q2'=>'④-2 질문','q3'=>'④-3 질문',
+          'one_question'=>'⑤ 1:1 한 가지','competitors'=>'⑥ 경쟁/차별'
+        ];
+        foreach($map as $k=>$title){
+          if(!empty($target[$k])){
+            echo '<li><b>'.$title.':</b> '.esc_html($target[$k]).'</li>';
+          }
+        }
+        ?>
+      </ul>
+      <div class="bwf-actions">
+        <a href="javascript:history.back()" class="bwf-btn-secondary">목록으로</a>
+      </div>
+    </div>
+  </div>
+  <?php
   return ob_get_clean();
 });
 
@@ -9225,165 +10198,329 @@ if ( !trait_exists(VcsCheckerMethods::class, false) ) :
 
 endif;
 `$nl
-===== FILE: berrywalk-feedback\public\css\style.css (8229 bytes, 158 lines) =====
+===== FILE: berrywalk-feedback\public\css\style.css (19703 bytes, 322 lines) =====
 `$ext
-/* 레이아웃 */
-.bwf-form{max-width:840px;margin:24px auto;padding:24px;background:#fff;border-radius:16px;
-  box-shadow:0 6px 20px rgba(0,0,0,.06);font-family:"Pretendard","Apple SD Gothic Neo",sans-serif}
-.bwf-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.bwf-col-full{grid-column:1/-1}
-@media(max-width:768px){ .bwf-grid{grid-template-columns:1fr} }
-
-label{display:block;font-size:14px;margin-bottom:6px}
-.bwf-required{color:#ef4444}
-
-/* 입력 */
-.bwf-form input, .bwf-form select, .bwf-form textarea{
-  width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:15px;
-  transition:border-color .2s, box-shadow .2s;background:#fff
-}
-.bwf-form textarea{min-height:120px;resize:vertical}
-.bwf-form input:focus, .bwf-form select:focus, .bwf-form textarea:focus{
-  border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.2);outline:0
-}
-.bwf-actions{text-align:center}
-.bwf-form button{padding:14px 20px;background:linear-gradient(90deg,#6366f1,#0ea5e9);
-  color:#fff;border:0;border-radius:9999px;font-weight:700;cursor:pointer}
-.bwf-form hr{border:0;border-top:1px solid #eee;margin:8px 0}
-
-/* 진행/카운터/오류 */
-.bwf-topcount{display:flex;justify-content:flex-end;margin:0 0 6px;font-size:13px;color:#6b7280}
-#bwf-progress{margin:0 0 18px;background:#f3f4f6;height:10px;border-radius:999px;overflow:hidden}
-#bwf-progress .bwf-bar{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#34d399)}
-.bwf-helper{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
-.bwf-helper .bwf-guide{color:#9ca3af}
-.bwf-helper .bwf-counter{color:#6b7280}
-.bwf-error{color:#ef4444;margin-top:4px;width:100%}
-.bwf-invalid{border-color:#ef4444 !important;box-shadow:0 0 0 3px rgba(239,68,68,.15) !important}
-.bwf-error-text{color:#ef4444;margin-bottom:8px}
+/* =======================================================================================
+   Berrywalk Feedback - Global Form Styles  (네임스페이스: .bwf-*)
+   목적: 플러그인 전역 폼 스타일 공통 규격 + 대표 질문지 전용 오버라이드
+   사용 원칙
+   - 전역 규칙은 .bwf-* 클래스로 한정(테마에 영향 최소화)
+   - 대표 질문지 화면은 .bwf-owner 클래스 하위에서만 오버라이드
+   - 하단의 v2 오버라이드가 앞선 규칙보다 우선(캐스케이딩)
+   ======================================================================================= */
 
 
-
-/* 상단 진행바 스티키 */
-.bwf-sticky, .bwf-topcount { position: sticky; top: 0; background:#fff; z-index: 40; }
-.bwf-topcount { padding: 10px 14px; border-bottom:1px solid #eee; font-weight:600; }
-#bwf-progress { position: relative; height: 10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar { position:absolute; left:0; top:0; height:100%; width:0%; background: linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label { position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
-.bwf-helper { display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-top:6px; }
-.bwf-helper .bwf-counter { font-variant-numeric: tabular-nums; }
-
-/* 폼 기본 타이포/여백 */
-.bwf-form { font-size:16.5px; line-height:1.7; }
-.bwf-form h2, .bwf-form h3 { margin: 32px 0 14px; }
-.bwf-form label { display:block; font-weight:600; margin: 16px 0 8px; }
-
-/* 입력 필드 */
-.bwf-form textarea,
-.bwf-form input[type="text"],
-.bwf-form input[type="url"],
-.bwf-form input[type="tel"] { width:100%; padding:12px 14px; }
-
-/* 제출 버튼 크게 */
-.bwf-form .bwf-submit,
-.bwf-form button[type="submit"],
-.bwf-form input[type="submit"]{
-  display:block; width:100%; max-width:420px; height:52px;
-  font-size:18px; border-radius:12px;
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Design tokens]  테마 색·간격 토큰 (필요 시 여기만 바꿔 전역 톤 조절)
+   ────────────────────────────────────────────────────────────────────────────────────── */
+:root{
+  --bwf-accent1:#0ea5e9;   /* 주요 그라데이션 1 (하늘색) */
+  --bwf-accent2:#6366f1;   /* 주요 그라데이션 2 (인디고) */
+  --bwf-success:#16a34a;   /* 성공/충족(OK) 색 */
+  --bwf-danger:#ef4444;    /* 오류/경고 색 */
+  --bwf-text:#0f172a;      /* 본문 텍스트 기본 */
+  --bwf-muted:#f3f4f6;     /* 옅은 배경 */
+  --bwf-muted-2:#eef2f7;   /* 진행바 등 보조 배경 */
+  --bwf-border:#e5e7eb;    /* 경계선 색 */
+  --bwf-label:#475569;     /* 라벨/보조 텍스트 */
 }
 
-/* 진행 현황(스티키) */
-.bwf-topwrap{ position:sticky; top:10px; z-index:40; background:#fff; padding:12px 14px 16px; border-bottom:1px solid #eee; margin-bottom:18px; }
-.bwf-topwrap .bwf-top-title{ font-weight:700; margin-bottom:8px; }
-#bwf-progress{ position:relative; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar{ position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label{ position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
-.bwf-helper{ display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:#64748b; }
-.bwf-helper b{ font-variant-numeric: tabular-nums; }
 
-/* 글자수 메타 */
-.bwf-count { margin-top:6px; display:flex; gap:8px; font-size:12px; color:#64748b; }
-.bwf-count .now{min-width:64px}
-.bwf-count .need{color:#334155}
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Layout / Typography]  폼 컨테이너 및 기본 타이포
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-form{
+  /* 컨테이너 박스 */
+  box-sizing:border-box;
+  max-width:880px;
+  margin:24px auto 56px;
+  padding:24px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 6px 20px rgba(0,0,0,.06);
 
-/* 회원가입 폼 전용(대표: shortcode가 .bwf-form.bwf-grid 구조) */
-.bwf-form.bwf-grid{ font-size:17.5px; line-height:1.75; }
-.bwf-form.bwf-grid label{ margin:14px 0 8px; font-weight:600; }
-.bwf-form.bwf-grid input, .bwf-form.bwf-grid select{ padding:12px 14px; }
+  /* 폰트/가독성 */
+  font-family:"Pretendard","Apple SD Gothic Neo",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  font-size:16.5px; line-height:1.7; color:var(--bwf-text);
+}
+
+.bwf-title{
+  /* 페이지/폼 타이틀 */
+  text-align:center; margin:4px 0 10px;
+  font-weight:800; letter-spacing:-.2px;
+}
+
+.bwf-required-note{ /* “* 표시는 필수 입력” 안내 라인 */
+  text-align:center; color:#6b7280; margin:0 0 14px;
+}
+
+/* 2열 그리드(회원가입 등) */
+.bwf-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.bwf-col-full{ grid-column:1 / -1; } /* 그리드 전체 폭 차지 */
+@media (max-width:768px){
+  .bwf-grid{ grid-template-columns:1fr; } /* 모바일 1열 */
+}
+
+/* 기본 제목/라벨 */
+.bwf-form h2,.bwf-form h3{ margin:32px 0 14px; }
+.bwf-form h3{ font-size:28px; font-weight:800; margin:8px 0 18px; }
+.bwf-form label{
+  display:block; font-size:16px; font-weight:700;
+  margin:16px 0 8px; color:var(--bwf-label);
+}
+.bwf-help{ font-size:13.5px; color:#64748b; margin:6px 0 10px; } /* 안내문 */
+.bwf-required{ color:var(--bwf-danger); } /* 라벨 옆 * 색상 */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Inputs]  입력 필드 공통 규격
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-form input,
+.bwf-form select,
+.bwf-form textarea{
+  width:100%; box-sizing:border-box;
+  padding:12px 14px;                    /* 손가락 터치 간격 확보 */
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  font-size:15px;
+  background:#fff;
+  transition:border-color .2s, box-shadow .2s; /* 포커스 부드럽게 */
+}
+.bwf-form textarea{ min-height:120px; resize:vertical; } /* 내용영역 */
+.bwf-form input:focus,
+.bwf-form select:focus,
+.bwf-form textarea:focus{
+  /* 접근성 고려 포커스 링 */
+  border-color:var(--bwf-accent2);
+  box-shadow:0 0 0 3px rgba(99,102,241,.2);
+  outline:0;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Actions / Buttons]  제출/보조 버튼
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-actions{ display:flex; justify-content:center; gap:10px; margin-top:18px; }
+.bwf-btn, .bwf-btn-secondary, .bwf-form button[type="submit"]{
+  display:inline-flex; justify-content:center; align-items:center;
+  min-width:200px; height:52px; padding:0 22px;
+  border-radius:12px; border:1px solid transparent; cursor:pointer;
+  font-weight:700; line-height:1; text-decoration:none;
+}
+.bwf-btn, .bwf-form button[type="submit"]{
+  background:linear-gradient(90deg,var(--bwf-accent2),var(--bwf-accent1));
+  color:#fff; border-color:transparent;
+}
+.bwf-btn:hover, .bwf-form button[type="submit"]{ filter:brightness(.98); }
+.bwf-btn-secondary{
+  background:#f3f4f6; color:#111827; border-color:#e5e7eb;
+  min-width:auto; height:40px; padding:0 12px;
+}
+.bwf-btn-secondary:hover{ background:#e5e7eb; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Divider]  섹션 구분선
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-form hr{ border:0; border-top:1px solid #eee; margin:8px 0; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Progress]  질문 폼 진행 현황(상단 스티키 바)
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-sticky{ position:sticky; top:0; background:#fff; z-index:40; padding:12px 0 8px; }
+.bwf-topcount{ display:flex; justify-content:flex-end; margin:0 0 6px; font-size:12px; color:#6b7280; }
+#bwf-progress{ position:relative; height:10px; background:var(--bwf-muted-2); border-radius:999px; overflow:hidden; }
+#bwf-progress .bar{ position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,var(--bwf-accent1),var(--bwf-accent2)); }
+#bwf-progress .label{ position:absolute; top:-22px; right:10px; font-size:12px; color:#64748b; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Helper]  글자수 카운터/OK 상태
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-helper{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:8px; margin-top:6px; font-size:12px; color:#64748b;
+}
+.bwf-helper .bwf-counter{ font-variant-numeric:tabular-nums; } /* 숫자 폭 고정 */
+.bwf-helper.ok{ color:var(--bwf-success); } /* 충족 시 녹색 */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Validation / Error]  유효성 시각 피드백
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-invalid, .bwf-form [aria-invalid="true"]{
+  border-color:var(--bwf-danger) !important;
+  box-shadow:0 0 0 3px rgba(239,68,68,.15) !important;
+}
+.bwf-error{ color:var(--bwf-danger); margin-top:4px; width:100%; }
+.bwf-error-text{ color:var(--bwf-danger); margin-bottom:8px; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Modal]  클라이언트/서버 검증 에러 팝업
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.35); z-index:10000; }
+.bwf-modal.is-open{ display:flex; }
+.bwf-modal__card{ width:min(440px,92vw); background:#fff; border:1px solid var(--bwf-border); border-radius:16px; padding:18px; }
+.bwf-modal__card h3{ margin:0 0 8px; font-size:18px; }
+.bwf-modal__msg{ color:#475569; margin:0 0 12px; }
+.bwf-modal__actions{ text-align:right; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Lists]  마이페이지 리스트/카드
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-list{ list-style:none; padding:0; margin:12px 0; display:flex; flex-direction:column; gap:10px; }
+.bwf-list li{ display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
+.bwf-list .bwf-time{ color:#64748b; min-width:170px; }
+.bwf-list .bwf-sum{ flex:1; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Pagination(목록 하단) */
+.bwf-pager{ display:flex; gap:8px; align-items:center; justify-content:center; margin-top:10px; }
+.bwf-pager .bwf-page{ color:#475569; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [View Wrapper]  상세보기 카드 + 푸터 간섭 방지
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-view{ box-sizing:border-box; max-width:880px; margin:24px auto 56px; padding:0 12px; }
+.bwf-card{ background:#fff; border:1px solid var(--bwf-border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+.bwf-kv{ list-style:none; padding:0; margin:0; }
+.bwf-kv li{ display:flex; gap:12px; padding:6px 0; border-bottom:1px dashed #e5e7eb; }
+.bwf-kv b{ min-width:110px; color:#64748b; }
+.bwf-bullets{ list-style:disc; padding-left:18px; margin:0; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────────────
+   [Signup Only]  회원가입 폼(.bwf-grid)에서만 진행바 숨김/버튼 크기
+   ────────────────────────────────────────────────────────────────────────────────────── */
+.bwf-form.bwf-grid .bwf-topcount,
+.bwf-form.bwf-grid #bwf-progress{ display:none !important; } /* 질문 폼엔 영향 없음 */
+
 .bwf-form.bwf-grid .bwf-actions{ margin:28px 0 8px; }
 .bwf-form.bwf-grid .bwf-actions button{
   width:100%; max-width:440px; height:56px; font-size:18px; border-radius:14px;
 }
 
-:root{ --bwf-sticky-top:72px; }     /* 헤더 높이에 맞춰 조정 가능 */
-/* 진행 현황: 스티키 해제 */
-.bwf-topwrap{ position: static !important; top:auto !important; margin:0 0 18px; }
+/* 링크형 중립 버튼 줄바꿈 방지 */
+a.bwf-btn-secondary{ white-space:nowrap; }
 
-/* 저장 버튼: 중앙 정렬 */
-.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
-.bwf-form .bwf-actions button[type="submit"],
-.bwf-form button.bwf-btn[type="submit"]{ margin:0 auto; display:inline-flex; justify-content:center; }
-
-/* 회원가입 폼에서 진행바/카운터 숨김 */
-.bwf-form.bwf-grid .bwf-topcount,
-.bwf-form.bwf-grid #bwf-progress { display:none !important; }
-
-/* 대표 질문지: 제목/설명/예시 타이포 */
-.bwf-form h3 { font-size:28px; font-weight:800; margin:8px 0 18px; }
-.bwf-form label { display:block; font-size:18px; font-weight:700; margin:18px 0 8px; }
-.bwf-form .bwf-help { font-size:13.5px; color:#64748b; margin:6px 0 10px; }
-.bwf-form textarea, .bwf-form input[type="text"] { width:100%; font-size:16px; line-height:1.6; }
+/* 스몰 유틸 */
+.bwf-hidden{ display:none !important; }
 
 
-/* 대표 질문지의 진행바 요소가 남아 있더라도 가림 (중복/스티키 방지) */
-#bwf-progress, .bwf-topwrap, .bwf-topcount { display:none !important; }
 
-/* 저장 버튼 중앙 정렬 */
-.bwf-form .bwf-actions{ display:flex; justify-content:center; margin-top:16px; }
-.bwf-form .bwf-actions .bwf-btn,
-.bwf-form .bwf-actions button[type="submit"]{ min-width:260px; height:56px; font-size:18px; border-radius:14px; }
+/* =======================================================================================
+   대표 질문지 전용 오버라이드 (.bwf-owner)
+   목적
+   - 1열 레이아웃 유지
+   - 진행바/카운터 강제 노출
+   - 설명/예시 타이포를 폼과 분리된 톤으로 정리
+   주의: 아래 블록은 “대표 질문지 페이지”에서만 적용됨
+   ======================================================================================= */
 
-/* 회원가입 전용 톤업 */
-.bwf-form h2, .bwf-form h3 { font-size: 1.5rem; letter-spacing: -0.2px; }
-.bwf-form .bwf-actions, .bwf-actions { text-align:center; margin: 24px 0 0; }
-.bwf-form .bwf-actions .button, .bwf-btn-primary {
-  display:inline-block; min-width: 260px; padding: 14px 22px; border-radius: 10px;
-  font-size: 1rem; line-height: 1; 
+/* [Top Sticky] 진행바 래퍼 */
+.bwf-owner { padding-top: 10px; }
+.bwf-owner .bwf-topwrap{
+  position: sticky; top: 0; z-index: 40;
+  background:#fff; padding:12px 14px 16px;
+  border-bottom:1px solid #eee; margin:0 0 18px;
 }
-.bwf-form { margin-top: 18px; }
+.bwf-owner .bwf-top-title{ font-weight:700; margin-bottom:8px; }
 
-.bwf-list { list-style:none; padding:0; margin: 10px 0; }
-.bwf-list li { display:flex; gap:14px; align-items:center; padding:12px 14px; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:10px; }
-.bwf-list .bwf-time { width:150px; color:#6b7280; }
-.bwf-list .bwf-sum { flex:1; }
+/* 진행바 그래픽 */
+.bwf-owner #bwf-progress{ position:relative; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
+.bwf-owner #bwf-progress .bar{ position:absolute; left:0; top:0; height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
+.bwf-owner #bwf-progress .label{ position:absolute; right:10px; top:-22px; font-size:12px; color:#64748b; }
+.bwf-owner .bwf-topwrap .done, .bwf-owner .bwf-topwrap .total { font-variant-numeric: tabular-nums; }
 
-/* 한 컬럼 레이아웃 */
-.bwf-grid.bwf-onecol { display:grid; grid-template-columns:1fr; gap:16px; }
-.bwf-form textarea, .bwf-form input[type="text"], .bwf-form input[type="url"],
-.bwf-form input[type="email"], .bwf-form input[type="number"], .bwf-form select {
-  width:100%; box-sizing:border-box;
+/* 질문 섹션 박스/타이포 */
+.bwf-owner .bwf-field{ margin-bottom:22px; }
+.bwf-owner .bwf-field label{
+  display:block; font-size:18px; font-weight:800; margin:12px 0 8px; color:#111827;
 }
+.bwf-owner .bwf-desc{ font-size:14.5px; color:#475569; margin:-2px 0 8px; } /* 설명문 */
+.bwf-owner .bwf-examples{
+  /* 예시 박스: 옅은 톤 + 둥근 모서리 */
+  background:#fafafa; border:1px solid #eef2f7; border-radius:10px;
+  padding:10px 12px; margin:4px 0 10px;
+}
+.bwf-owner .bwf-examples strong{ color:#0f172a; }
+.bwf-owner .bwf-examples ul{ margin:6px 0 0 18px; }
+.bwf-owner .bwf-examples ol{ margin:6px 0 0 18px; }
 
-/* 진행바 */
-.bwf-sticky { position:sticky; top:0; background:#fff; z-index:5; padding:12px 0 8px; }
-#bwf-progress { position:relative; height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; }
-#bwf-progress .bar { height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
-#bwf-progress .label { position:absolute; top:-22px; right:0; font-size:12px; color:#475569; }
-.bwf-topcount { font-size:12px; color:#475569; margin-bottom:6px; }
+/* 입력 필드(대표폼) */
+.bwf-owner textarea,
+.bwf-owner input[type="text"]{
+  width:100%; padding:12px 14px; font-size:16px; line-height:1.6;
+}
 
 /* 글자수 헬퍼 */
-.bwf-helper { display:flex; justify-content:flex-end; gap:8px; font-size:12px; color:#64748b; }
-.bwf-helper.ok { color:#16a34a; }
+.bwf-owner .bwf-helper{ display:flex; justify-content:flex-end; gap:8px; font-size:12px; color:#64748b; margin-top:6px; }
+.bwf-owner .bwf-helper.ok{ color:var(--bwf-success); }
 
-/* 마이페이지 리스트 */
-.bwf-list { list-style:none; padding:0; margin:12px 0; display:flex; flex-direction:column; gap:10px; }
-.bwf-list li { display:flex; gap:10px; align-items:center; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; }
-.bwf-list .bwf-time { color:#64748b; min-width: 170px; }
-.bwf-list .bwf-sum { flex:1; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bwf-list a.button { white-space:nowrap; }
+/* 모바일(대표폼)에서 제목/예시 크기 보정 */
+@media (max-width:768px){
+  .bwf-owner .bwf-title{ font-size:22px; }
+  .bwf-owner .bwf-examples{ font-size:14px; }
+}
 
-/* 버튼 영역 간격 */
-.bwf-actions { margin-top:18px; }
+/* 다른 곳에서 진행바를 숨겼다면 대표폼에서는 강제 노출 */
+.bwf-owner #bwf-progress,
+.bwf-owner .bwf-topwrap,
+.bwf-owner .bwf-topcount{ display:block !important; }
+
+
+
+/* =======================================================================================
+   대표 질문지 오버라이드 v2 (시각 톤 업그레이드)
+   - 타이틀 크기/질문 라벨을 4번 섹션 톤에 맞춰 상향
+   - 예시 박스는 더 작고 차분하게 (모바일 여백 축소)
+   - 위 블록보다 아래에 있어 우선 적용됨
+   ======================================================================================= */
+
+/* [Title] 페이지 타이틀 크게 */
+.bwf-owner .bwf-title{ font-size:30px; font-weight:900; letter-spacing:-.2px; }
+@media (max-width:768px){ .bwf-owner .bwf-title{ font-size:24px; } }
+
+/* [Section] 문항 간격 + 라벨 통일(굵고 큼) */
+.bwf-owner .bwf-field{ margin-bottom:22px; }
+.bwf-owner .bwf-field label{ display:block; font-size:20px; font-weight:800; margin:6px 0 8px; color:#111827; } /* 모든 문항 타이틀 크기 통일 */
+.bwf-owner .bwf-h3{ font-size:20px; font-weight:800; margin:18px 0 8px; } /* 그룹 섹션 제목 */
+
+/* [Copy] 설명/예시(더 작게) */
+.bwf-owner .bwf-desc{ font-size:14.5px; color:#475569; margin:0 0 8px; }
+.bwf-owner .bwf-examples{
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;
+  padding:10px 12px; margin:6px 0 10px;
+}
+.bwf-owner .bwf-examples p,
+.bwf-owner .bwf-examples ul,
+.bwf-owner .bwf-examples ol{ margin:6px 0; }
+.bwf-owner .bwf-examples ul,
+.bwf-owner .bwf-examples ol{ padding-left:18px; }
+
+/* 모바일에서 예시 여백/글자 약간 더 줄임 */
+@media (max-width:768px){
+  .bwf-owner .bwf-examples{ padding:8px 10px; margin:6px 0 8px; }
+  .bwf-owner .bwf-desc{ font-size:14px; }
+}
+
+/* [Inputs/Helper] (대표폼 전용) */
+.bwf-owner textarea{ width:100%; padding:12px 14px; font-size:16px; line-height:1.6; }
+.bwf-owner .bwf-helper{ display:flex; justify-content:flex-end; gap:8px; font-size:12px; color:#64748b; margin-top:6px; }
+.bwf-owner .bwf-helper.ok{ color:var(--bwf-success); }
+
+/* [Progress] 상단 진행바(항상 노출) */
+.bwf-owner .bwf-topwrap{ position:sticky; top:0; z-index:40; background:#fff; padding:12px 14px 14px; border-bottom:1px solid #eee; margin:0 0 16px; }
+.bwf-owner .bwf-top-title{ font-weight:700; margin-bottom:8px; }
+.bwf-owner #bwf-progress{ position:relative; height:10px; background:#eef2f7; border-radius:999px; overflow:hidden; }
+.bwf-owner #bwf-progress .bar{ height:100%; width:0%; background:linear-gradient(90deg,#0ea5e9,#6366f1); }
+.bwf-owner #bwf-progress .label{ position:absolute; right:0; top:-22px; font-size:12px; color:#475569; }
+
+/* [Reset] 혹시 다른 CSS가 숨겼을 경우 강제 노출 */
+.bwf-owner #bwf-progress, .bwf-owner .bwf-topwrap, .bwf-owner .bwf-topcount{ display:block !important; }
 
 `$nl
 ===== FILE: berrywalk-feedback\public\js\feedback.js (10996 bytes, 290 lines) =====
