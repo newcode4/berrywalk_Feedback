@@ -319,3 +319,16 @@ a.bwf-btn-secondary{ white-space:nowrap; }
 
 /* [Reset] 혹시 다른 CSS가 숨겼을 경우 강제 노출 */
 .bwf-owner #bwf-progress, .bwf-owner .bwf-topwrap, .bwf-owner .bwf-topcount{ display:block !important; }
+
+
+.bwf-field.bwf-error textarea { border:2px solid #ef4444 !important; outline: none; }
+.bwf-modal.is-open { display:block; }
+
+.bwf-topwrap{position:sticky;top:72px;z-index:10;background:#fff;padding:12px 0 8px}
+#bwf-progress{height:10px;background:#f1f5f9;border-radius:999px;overflow:hidden}
+#bwf-progress .bar{height:100%;width:0%}
+.bwf-field{margin:18px 0}
+.bwf-field.bwf-error textarea{border:2px solid #ef4444!important}
+.bwf-actions{margin-top:20px}
+.bwf-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3)}
+.bwf-modal__card{max-width:420px;margin:10vh auto;background:#fff;padding:20px;border-radius:12px}

@@ -31,7 +31,7 @@ if (!$rep_id) return '<p>유효하지 않은 요청입니다.</p>';
     $answers = array_map('sanitize_textarea_field', $_POST['answer'] ?? []);
     $all = get_option('bwf_feedbacks', []);
     $all[] = [
-      't'       => current_time('mysql'),
+      't' => wp_date('Y-m-d H:i:s'),
       'rep'     => $rep_id,
       'user'    => get_current_user_id(),
       'answers' => $answers,

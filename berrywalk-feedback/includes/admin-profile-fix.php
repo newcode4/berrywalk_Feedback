@@ -72,3 +72,26 @@ function bwf_admin_profile_fix_footer(){
 add_action('admin_footer-profile.php','bwf_admin_profile_fix_footer');
 add_action('admin_footer-user-edit.php','bwf_admin_profile_fix_footer');
 add_action('admin_footer-user-new.php','bwf_admin_profile_fix_footer');
+
+
+// 'native' 메타가 배열이면 저장 전에 문자열로 정규화
+add_filter('sanitize_user_meta_native', function($val){
+  if (is_array($val)) {
+    $val = implode(', ', array_filter(array_map('sanitize_text_field', $val)));
+  }
+  return sanitize_text_field($val);
+});
+
+add_action('admin_init', function(){
+  if (!current_user_can('manage_options')) return;
+  if (!isset($_GET['fix_native'])) return;
+
+  global $wpdb;
+  $rows = $wpdb->get_results("SELECT user_id, meta_value FROM {$wpdb->usermeta} WHERE meta_key='native'");
+  foreach ($rows as $r) {
+    $v = maybe_unserialize($r->meta_value);
+    if (is_array($v)) {
+      update_user_meta($r->user_id, 'native', implode(', ', array_map('sanitize_text_field',$v)));
+    }
+  }
+});

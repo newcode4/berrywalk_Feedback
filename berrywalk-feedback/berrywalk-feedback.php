@@ -29,7 +29,7 @@ try {
 /** includes */
 require_once BWF_DIR.'includes/helper.php';
 require_once BWF_DIR.'includes/signup.php';              // ✅ 가입 폼
-require_once BWF_DIR.'includes/representative-form.php'; // 대표 질문지
+// require_once BWF_DIR.'includes/representative-form.php'; // 구버전
 require_once BWF_DIR.'includes/feedback-form.php';       // 고객 피드백 (저장 단일화)
 require_once BWF_DIR.'includes/crm.php';                 // CRM 테이블
 require_once BWF_DIR.'includes/admin-users.php';         // ✅ 사용자 화면(컬럼/프로필)

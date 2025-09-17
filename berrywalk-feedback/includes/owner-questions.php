@@ -136,6 +136,8 @@ add_shortcode('bwf_owner_questions', function(){
   <form class="bwf-form bwf-owner" method="post" id="bwfOwnerForm" novalidate>
     <input type="hidden" name="bwf_owner_action" value="save">
     <input type="hidden" name="bwf_owner_nonce" value="<?php echo esc_attr($nonce); ?>">
+    <input type="hidden" name="bwf_submission" value="<?php echo esc_attr( wp_generate_uuid4() ); ?>">
+
 
     <h2 class="bwf-title"><?php echo esc_html($cfg['title'] ?? '대표님 핵심 질문지'); ?></h2>
     <p class="bwf-help">
@@ -213,12 +215,23 @@ add_shortcode('bwf_owner_questions', function(){
       const total = parseInt(wrap.querySelector('.total').textContent,10) || 0;
       const btn   = document.getElementById('bwfOwnerSubmit');
       const modal = document.getElementById('bwf-modal');
-      const ok    = document.getElementById('bwf-modal-ok');
+      const okBtn    = document.getElementById('bwf-modal-ok');
       const form  = document.getElementById('bwfOwnerForm');
+      
 
-      function openModal(msg){ modal.querySelector('.bwf-modal__msg').textContent = msg; modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); }
-      function closeModal(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
-      ok.addEventListener('click', closeModal);
+       function openModal(msg){
+            modal.querySelector('.bwf-modal__msg').textContent = msg;
+            modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+        }
+        okBtn.addEventListener('click', ()=>{ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); });
+
+        function markError(el){
+            el.classList.add('bwf-error');
+            el.closest('.bwf-field')?.classList.add('bwf-error');
+        }
+        function clearErrors(){
+            form.querySelectorAll('.bwf-error').forEach(x=>x.classList.remove('bwf-error'));
+        }
 
       // 글자수 카운터 + 진행률
       function recalc(){
@@ -243,36 +256,36 @@ add_shortcode('bwf_owner_questions', function(){
 
       // 제출 시 검증(필수/최소 글자)
       form.addEventListener('submit', function(e){
-        let first = null; let msg = '누락된 필수 항목을 입력해 주세요.';
-        const fields = Array.from(form.querySelectorAll('textarea, input[required], select[required]'));
-        fields.forEach(el=>{
-          el.classList.remove('bwf-invalid'); el.removeAttribute('aria-invalid');
-          if(el.hasAttribute('minlength')){
-            const need = parseInt(el.getAttribute('minlength')||'0',10);
-            const now = (el.value||'').trim().length;
-            if(now < need){ el.setCustomValidity('최소 글자수 미달'); }
-            else el.setCustomValidity('');
-          }
-          if(!el.checkValidity()){
-            if(!first) first = el;
-            el.classList.add('bwf-invalid'); el.setAttribute('aria-invalid','true');
-          }
-        });
-        if(first){
-          e.preventDefault();
-          openModal(msg);
-          first.scrollIntoView({behavior:'smooth', block:'center'});
-          first.focus({preventScroll:true});
-          return;
-        }
-        // 중복 제출 방지
-        btn.disabled = true; btn.style.opacity = .7;
-      });
+            clearErrors();
+            let firstBad = null, msgs = [];
 
-      // PHP에서 에러가 내려온 경우 모달 자동오픈(문구는 서버에서 채움)
-      <?php if ($err) : ?> openModal('<?php echo esc_js($err); ?>'); <?php endif; ?>
-    })();
-    </script>
+            // 일반 문항(필수+minlength)
+            form.querySelectorAll('textarea[required]').forEach(el=>{
+            const v = (el.value||'').trim();
+            const ml = parseInt(el.getAttribute('minlength')||'0',10);
+            if (!v) { markError(el); msgs.push('필수 항목을 입력해주세요.'); if(!firstBad) firstBad=el; return; }
+            if (ml > 0 && v.length < ml) { markError(el); msgs.push(`최소 ${ml}자 이상 작성해주세요.`); if(!firstBad) firstBad=el; }
+            });
+
+            // 그룹 문항(모든 소문항 필수이지만 글자수 제한은 없음)
+            form.querySelectorAll('.bwf-sub textarea[required]').forEach(el=>{
+            const v=(el.value||'').trim();
+            if(!v){ markError(el); if(!firstBad) firstBad=el; msgs.push('소문항을 모두 입력해주세요.'); }
+            });
+
+            if (msgs.length){
+            e.preventDefault();
+            btn.disabled = false; btn.removeAttribute('aria-busy');
+            openModal('필수 항목을 확인해주세요.');
+            firstBad?.scrollIntoView({behavior:'smooth', block:'center'});
+            firstBad?.focus();
+            } else {
+            // 더블클릭 방지
+            btn.disabled = true; btn.setAttribute('aria-busy','true');
+            }
+        });
+        })();
+        </script>
   </form>
   <?php
   return ob_get_clean();
@@ -346,3 +359,85 @@ function bwf_sanitize_deep($val){
   if (is_array($val)){ foreach($val as $k=>$v){ $val[$k] = bwf_sanitize_deep($v); } return $val; }
   return sanitize_textarea_field((string)$val);
 }
+
+add_action('template_redirect', function(){
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
+  if (($_POST['bwf_owner_action'] ?? '') !== 'save') return;
+
+  if (!is_user_logged_in()) {
+    wp_safe_redirect( home_url('/login/') ); exit;
+  }
+
+  $uid   = get_current_user_id();
+  $nonce = $_POST['bwf_owner_nonce'] ?? '';
+  if (!wp_verify_nonce($nonce, 'bwf_owner_save')) {
+    wp_safe_redirect( add_query_arg('err','nonce', wp_get_referer() ?: home_url('/') ) ); exit;
+  }
+
+  // 2중 저장 방지: (유저ID+제출토큰)로 5분 락
+  $sub  = sanitize_text_field($_POST['bwf_submission'] ?? '');
+  $lock = "bwf_owner_lock_{$uid}_{$sub}";
+  if (empty($sub) || get_transient($lock)) {
+    wp_safe_redirect( add_query_arg('err','dup', wp_get_referer() ?: home_url('/') ) ); exit;
+  }
+  set_transient($lock, 1, 5*MINUTE_IN_SECONDS);
+
+  // 검증
+  $cfg   = bwf_owner_get_config();
+  $min   = intval($cfg['min_length'] ?? 200);
+  $qs    = (array)($cfg['questions'] ?? []);
+  $in    = (array)($_POST['q'] ?? []);
+  $errs  = [];
+  $clean = [];
+
+  foreach ($qs as $q) {
+    $id   = $q['id'] ?? '';
+    $type = $q['type'] ?? 'textarea';
+    $req  = !isset($q['required']) || $q['required'];
+    $ml   = isset($q['minlength']) && $q['minlength'] !== '' ? intval($q['minlength']) : $min;
+
+    if ($type === 'group') {
+      $subs = (array)($q['sub'] ?? []);
+      $clean[$id] = [];
+      foreach ($subs as $s) {
+        $sid  = $s['id'] ?? ''; if (!$sid) continue;
+        $sreq = !isset($s['required']) || $s['required'];
+        $val  = trim((string)($in[$id][$sid] ?? ''));
+        $clean[$id][$sid] = sanitize_textarea_field($val);
+        if ($sreq && $val === '') {
+          $errs[] = "{$q['label']} - {$s['label']} 입력 필요";
+        }
+      }
+    } else {
+      $val = trim((string)($in[$id] ?? ''));
+      $clean[$id] = sanitize_textarea_field($val);
+      if ($req) {
+        if ($val === '') { $errs[] = "{$q['label']} 입력 필요"; }
+        elseif (mb_strlen($val) < $ml) { $errs[] = "{$q['label']} 최소 {$ml}자 이상"; }
+      }
+    }
+  }
+
+  if ($errs) {
+    // 폼 재표시를 위해 POST 값 유지
+    $_POST['bwf_q_error'] = implode(' / ', $errs);
+    return; // shortcode가 같은 요청 내에서 에러를 표시
+  }
+
+  // 저장: CPT 단건
+  $title   = '대표 질문 ' . wp_date('Y-m-d H:i:s'); // 서울시간
+  $post_id = wp_insert_post([
+    'post_type'    => 'bwf_owner_answer',
+    'post_title'   => $title,
+    'post_status'  => 'publish',
+    'post_author'  => $uid,
+  ], true);
+
+  if (!is_wp_error($post_id)) {
+    update_post_meta($post_id, 'bwf_answers', $clean);
+    update_post_meta($post_id, 'bwf_submission', $sub);
+    wp_safe_redirect( add_query_arg(['saved'=>1,'id'=>$post_id], BWF_OWNER_AFTER_SAVE_URL) ); exit;
+  }
+
+  wp_safe_redirect( add_query_arg('err','save', wp_get_referer() ?: home_url('/') ) ); exit;
+});
