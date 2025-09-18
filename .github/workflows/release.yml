@@ -17,9 +17,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Make zip (SUBFOLDER → berrywalk-feedback)
+      - name: Make zip (SUBFOLDER → bw-owner-suite-acf)
         env:
-          PLUGIN_SLUG: berrywalk-feedback
+          PLUGIN_SLUG: berrywalk-feedback-acf
         run: |
           set -euo pipefail
           mkdir -p pkg

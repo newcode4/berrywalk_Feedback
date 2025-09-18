@@ -1,0 +1,109 @@
+/* /assets/owner-form.css */
+
+/* ====== Base ====== */
+:root{
+  --bw-font:17.5px;
+  --bw-muted:#64748b;
+  --bw-border:#e5e7eb;
+  --bw-accent:#6366f1;
+  --bw-ok:#16a34a;
+  --bw-warn:#ef4444;
+  --bw-bg:#f8fafc;
+}
+body{font-size:var(--bw-font);background:var(--bw-bg)}
+.bwos-wrap{max-width:920px;margin:40px auto;padding:0 16px}               /* ⬆ 여백 확대 */
+.bwf-title{font-size:30px;line-height:1.25;margin:22px 0 16px}
+.bwf-help{color:#0f172a;margin:0 0 18px}
+
+/* ====== Sticky progress (카드형, 배경/테두리 추가) ====== */
+.bwos-progress{
+  position:sticky;top:64px;z-index:1000;margin:0 0 18px;
+  background:#ffffff; border:1px solid var(--bw-border); border-radius:14px;
+  padding:12px 14px; box-shadow:0 6px 18px rgba(2,6,23,.06);
+}
+body.admin-bar .bwos-progress{top:96px}
+.bwos-progress .bar{height:10px;background:#f2f4f7;border-radius:999px;overflow:hidden}
+.bwos-progress .bar>span{display:block;height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#6366f1);border-radius:999px;transition:width .2s}
+.bwos-progress .status{font-size:12px;color:#334155;margin-top:8px}
+
+/* ====== Field ====== */
+.bwf-field{margin:28px 0}                                                  /* ⬆ 여백 확대 */
+.bwf-field label{display:block;font-weight:700;margin:0 0 14px;font-size:18px}
+.bwf-field textarea,
+.bwf-field input[type="text"],
+.bwf-field input[type="number"],
+.bwf-field input[type="email"],
+.bwf-field input[type="tel"],
+.bwf-field input[type="url"],
+.bwf-field select{
+  width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font-size:16.5px;outline:none
+}
+.bwf-field textarea:focus,
+.bwf-field input:focus,
+.bwf-field select:focus{border-color:var(--bw-accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+
+.bwos-field.bwos-error textarea,
+.bwos-field.bwos-error input,
+.bwos-field.bwos-error select{border-color:var(--bw-warn);background:#fff1f2}
+.bwf-invalid{border-color:var(--bw-warn) !important;background:#fff1f2 !important}
+
+/* ====== 설명/예시 – 한국형 카드 스타일 ====== */
+.bwf-desc, .bwf-examples{
+  margin:10px 0 10px;padding:12px 14px;border:1px dashed #dbe1ea;border-radius:12px;background:#fbfdff
+}
+.bwf-desc::before{
+  content:"설명"; display:inline-block; font-size:12px; font-weight:800; color:#0ea5e9;
+  background:#e6f6fb; border:1px solid #bde7f4; border-radius:999px; padding:2px 8px; margin-right:8px
+}
+.bwf-examples::before{
+  content:"예시"; display:inline-block; font-size:12px; font-weight:800; color:#6366f1;
+  background:#eef0ff; border:1px solid #dfe3ff; border-radius:999px; padding:2px 8px; margin-right:8px
+}
+.bwf-examples ul,.bwf-examples ol{margin:6px 0 0 18px}
+
+/* ====== Counter ====== */
+.bwos-count{
+  display:inline-block;margin-top:8px;font-size:12px;font-weight:700;
+  color:var(--bw-muted);background:#f3f4f6;border:1px solid #e5e7eb;border-radius:999px;padding:4px 8px
+}
+.bwos-count.ok{color:#065f46;background:#ecfdf5;border-color:#bbf7d0}
+.bwos-count.need{color:#7c2d12;background:#fff7ed;border-color:#fed7aa}
+
+/* ====== Buttons ====== */
+.bwf-actions{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:20px}
+.bwf-btn{display:inline-block;padding:12px 18px;border-radius:14px;border:none;background:var(--bw-accent);color:#fff;text-decoration:none;font-weight:700}
+.bwf-btn-secondary{display:inline-block;padding:12px 18px;border-radius:14px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;text-decoration:none;font-weight:700}
+
+
+/* ====== Modal (공용) ====== */
+.bwos-modal, .bwf-modal{
+  position:fixed;inset:0;display:none;align-items:flex-start;justify-content:center;padding-top:18vh;background:rgba(0,0,0,.45);z-index:100000
+}
+body.admin-bar .bwos-modal, body.admin-bar .bwf-modal{padding-top:calc(18vh + 32px)}
+.bwos-modal.is-open, .bwf-modal.is-open{display:flex}
+.bwos-modal-inner, .bwf-modal .bwf-modal__card{
+  background:#fff;max-width:560px;width:92vw;padding:22px;border-radius:16px;box-shadow:0 22px 44px rgba(2,6,23,.18)
+}
+.bwos-modal-inner h4, .bwf-modal h3{margin:0 0 10px;font-size:18px}
+.bwos-modal-inner p, .bwf-modal p{margin:0 0 12px;color:#334155}
+.bwf-modal__list{margin:6px 0 0 18px;font-size:14px;color:#1f2937}
+
+/* ====== List / View ====== */
+.bwf-card{border:1px solid var(--bw-border);background:#fff;border-radius:12px;padding:12px 14px}
+
+/* ====== Signup grid ====== */
+.bwf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.bwf-col-full{grid-column:1/-1}
+@media (max-width:720px){.bwf-grid{grid-template-columns:1fr}}
+.bwf-hidden{display:none}
+
+/* 마이페이지 카드 & 페이지네이션 */
+.bwos-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:920px){.bwos-list{grid-template-columns:1fr}}
+.bwos-card{border:1px solid #e5e7eb;border-radius:14px;padding:14px 16px;background:#fff;box-shadow:0 6px 14px rgba(2,6,23,.05)}
+.bwos-card h4{margin:0 0 6px;font-size:17px}
+.bwos-card .meta{font-size:12px;color:#64748b;margin-bottom:10px}
+.bwos-card .row a{display:inline-block;padding:8px 12px;border-radius:10px;background:#f1f5f9;text-decoration:none;color:#0f172a}
+.bwos-pg{margin:18px 0 8px;text-align:center}
+.bwos-pg .page-numbers{display:inline-block;padding:8px 12px;border:1px solid #e5e7eb;border-radius:10px;margin:0 3px;text-decoration:none;color:#0f172a}
+.bwos-pg .current{background:#6366f1;color:#fff;border-color:#6366f1}
