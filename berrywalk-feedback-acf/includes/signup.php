@@ -81,6 +81,8 @@ add_shortcode('bwf_signup_representative', function () {
   ob_start(); ?>
   <form method="post" class="bwf-form bwf-grid" id="bwf-signup-rep" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" novalidate>
     <input type="hidden" name="action" value="bwf_signup_rep">
+    <input type="hidden" name="bwf_role" value="bw_owner">
+
     <?php wp_nonce_field('bwf_signup_rep','bwf_nonce'); ?>
 
     <h2 class="bwf-title bwf-col-full" style="margin-top:8px;margin-bottom:10px">대표 회원가입</h2>
@@ -120,6 +122,30 @@ add_shortcode('bwf_signup_representative', function () {
       <input type="tel" name="bw_phone" id="bwf-phone" inputmode="numeric" placeholder="010-1234-5678" maxlength="13" value="<?php echo esc_attr($old['bw_phone']??''); ?>" required>
     </div>
     <div><label style="margin-bottom:14px">연락 가능한 시간대 *</label><input type="text" name="bw_contact_window" value="<?php echo esc_attr($old['bw_contact_window']??''); ?>" placeholder="예: 평일 13:00~18:00" required></div>
+
+      <div class="bwf-col-full">
+  <label class="bwf-checkbox" style="display:flex;gap:.5rem;align-items:flex-start">
+    <input type="checkbox" name="bwf_privacy" value="1" required>
+    <span>
+      <strong>(필수)</strong> 베리워크의 개인정보 수집·이용에 동의합니다.
+      <small style="display:block;margin-top:.25rem">
+        자세한 내용은
+        <a href="<?php echo esc_url( function_exists('get_privacy_policy_url') ? get_privacy_policy_url() : home_url('/privacy-policy/') ); ?>"
+           target="_blank" rel="noopener">개인정보처리방침</a>에서 확인할 수 있어요.
+      </small>
+      <details style="margin-top:.25rem">
+        <summary>동의 내용 간단히 보기</summary>
+        <ul style="margin:.5rem 0 0 1rem;list-style:disc">
+          <li>수집 항목: 이름, 이메일, 휴대폰, 회사명, 웹사이트 주소 등 회원가입에 필요한 정보</li>
+          <li>이용 목적: 회원관리, 서비스 제공 및 문의 응대</li>
+          <li>보유 기간: 회원 탈퇴 시까지 또는 관련 법령에 따른 기간</li>
+        </ul>
+      </details>
+    </span>
+  </label>
+</div>
+
+
 
     <div class="bwf-actions bwf-col-full" style="margin-top:18px">
       <button type="submit" name="bwf_register" class="bwf-btn">회원가입</button>
@@ -177,6 +203,12 @@ function bwf_handle_signup_rep(){
   $first_name=sanitize_text_field($_POST['first_name']??'');
 
   if (!$user_login||!$user_email||!$user_pass||!$first_name){ set_transient('bwf_signup_err','필수 항목이 누락되었습니다.',60); wp_safe_redirect(wp_get_referer()?:home_url('/')); exit; }
+  // (필수) 개인정보 동의 체크
+if ( empty($_POST['bwf_privacy']) ) {
+  set_transient('bwf_signup_err', '개인정보 수집·이용 동의(필수)를 체크해 주세요.', 60);
+  wp_safe_redirect( wp_get_referer() ?: home_url('/') );
+  exit;
+}
 
   $uid = wp_insert_user([
     'user_login'=>$user_login,'user_email'=>$user_email,'user_pass'=>$user_pass,
@@ -196,6 +228,7 @@ function bwf_handle_signup_rep(){
   }
 
   delete_transient('bwf_signup_old');
+  update_user_meta( $uid, 'bwf_privacy_agreed_at', current_time('mysql') );
 
   wp_set_current_user($uid); wp_set_auth_cookie($uid);
   wp_safe_redirect(home_url('/owner-questions/')); exit;
