@@ -2,25 +2,21 @@
 /*
 Plugin Name: Berrywalk Feedback (ACF)
 Description: 대표 질문지 + 대표 회원가입 + 마이페이지 (ACF 기반 경량 플러그인)
-Version: 1.4.6
+Version: 1.5.0
 Author: Berrywalk
 Text Domain: berrywalk-feedback-acf
+Update URI: https://github.com/newcode4/berrywalk-feedback-acf
 */
 
 if (!defined('ABSPATH')) exit;
 
-/** ───────────────── 기본 상수 ───────────────── */
-define('BWFB_VER',  '1.4.6');
+define('BWFB_VER',  '1.5.0');
 define('BWFB_FILE', __FILE__);
 define('BWFB_DIR',  plugin_dir_path(__FILE__));
 define('BWFB_URL',  plugin_dir_url(__FILE__));
 
-/** ───────────────── (선택) 텔레그램 설정 ─────────────────
- * 보안을 위해 wp-config.php 에 아래처럼 두는 것을 권장합니다.
- *   define('BW_TG_BOT_TOKEN', '1234:AAAA...'); // BotFather
- *   define('BW_TG_CHAT_ID',   '@your_public_channel_id'); // @로 시작(공개채널)
- * 플러그인 파일에 두고 싶으면 아래 주석을 풀어 사용하세요.
- */
+
+
 if (!defined('BW_TG_BOT_TOKEN')) define('BW_TG_BOT_TOKEN', '');
 if (!defined('BW_TG_CHAT_ID'))   define('BW_TG_CHAT_ID',   '');
 
@@ -58,36 +54,28 @@ add_action('wp_enqueue_scripts', function(){
   wp_register_script('bwf-forms', $js,  ['jquery'], BWFB_VER, true); // alias
 });
 
-/** ──────────────── (선택) 깃허브 자동 업데이트 ────────────────
- * /plugin-update-checker/ 폴더가 있으면 사용합니다.
- * 리포 경로를 "사용자명/리포명"으로 바꿔주세요.
- */
-add_action('init', function () {
-  $puc = BWFB_DIR.'plugin-update-checker/plugin-update-checker.php';
-  if (!is_admin() || !file_exists($puc)) return;
+// ───────── 깃허브 자동 업데이트 (PUC v5) ─────────
+if ( is_admin() ) {
+  require_once __DIR__ . '/plugin-update-checker/plugin-update-checker.php';
+  // v5 네임스페이스 사용
+  $factory = '\YahnisElsts\PluginUpdateChecker\v5\PucFactory';
 
-  require_once $puc;
+  // ★ 본인 리포 경로 정확히 입력 (예: newcode4/berrywalk-feedback-acf)
+  $repo = 'newcode4/berrywalk_Feedback';
 
-  // ❗여기를 본인 깃허브 리포에 맞게 수정: 예) 'jakvis2/berrywalk-feedback-acf'
-  $repo = 'jakvis2/berrywalk-feedback-acf';
+  // ★ 슬러그는 '폴더명' 그대로! (예: berrywalk-feedback-acf)
+  $slug = 'berrywalk-feedback-acf';
 
-  // PUC v5 / v4 모두 자동 호환
-  if (class_exists('Puc_v5_Factory')) {
-    $up = Puc_v5_Factory::buildUpdateChecker(
-      'https://github.com/'.$repo.'/',
-      BWFB_FILE,
-      'berrywalk-feedback-acf' // 플러그인 슬러그(폴더명과 맞추기)
+  if (class_exists($factory)) {
+    $updateChecker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+      'https://github.com/'.$repo,
+      __FILE__,
+      $slug
     );
-  } elseif (class_exists('Puc_v4_Factory')) {
-    $up = Puc_v4_Factory::buildUpdateChecker(
-      'https://github.com/'.$repo.'/',
-      BWFB_FILE,
-      'berrywalk-feedback-acf'
-    );
-  } else {
-    return;
+    // 기본 브랜치
+    $updateChecker->setBranch('main');
+    // (권장) 릴리즈 자산(zip) 우선
+    $updateChecker->getVcsApi()->enableReleaseAssets();
+    // (private 리포면) $updateChecker->setAuthentication('ghp_xxx');
   }
-
-  // 기본 브랜치(main/master)에 맞게 설정
-  if (method_exists($up, 'setBranch')) $up->setBranch('main');
-});
+}

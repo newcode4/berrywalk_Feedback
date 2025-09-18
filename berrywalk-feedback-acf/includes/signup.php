@@ -106,7 +106,7 @@ add_shortcode('bwf_signup_representative', function () {
         <option value="기타" <?php selected($sel,'기타'); ?>>기타</option>
       </select>
     </div>
-    <div><label style="margin-bottom:14px">직원 수 *</label><input type="number" name="bw_employees" value="<?php echo esc_attr($old['bw_employees']??''); ?>" min="1" required></div>
+    <div><label style="margin-bottom:14px">직원 수 *</label><input type="number" name="bw_employees" value="<?php echo esc_attr($old['bw_employees']??''); ?>" min="0" required></div>
     <div><label style="margin-bottom:14px">홈페이지 URL</label><input type="url" name="user_url" value="<?php echo esc_attr($old['user_url']??''); ?>" placeholder="https://"></div>
 
     <div class="bwf-col-full">
@@ -129,17 +129,9 @@ add_shortcode('bwf_signup_representative', function () {
     <span>
       <strong>(필수)</strong> 베리워크의 개인정보 수집·이용에 동의합니다.
       <small style="display:block;margin-top:.25rem">
-        자세한 내용은
-        <a href="<?php echo esc_url( function_exists('get_privacy_policy_url') ? get_privacy_policy_url() : home_url('/privacy-policy/') ); ?>"
-           target="_blank" rel="noopener">개인정보처리방침</a>에서 확인할 수 있어요.
+        자세한 내용은 홈페이지 하단 개인정보처리방침에서 확인할 수 있어요.
+        
       </small>
-      <details style="margin-top:.25rem">
-        <summary>동의 내용 간단히 보기</summary>
-        <ul style="margin:.5rem 0 0 1rem;list-style:disc">
-          <li>수집 항목: 이름, 이메일, 휴대폰, 회사명, 웹사이트 주소 등 회원가입에 필요한 정보</li>
-          <li>이용 목적: 회원관리, 서비스 제공 및 문의 응대</li>
-          <li>보유 기간: 회원 탈퇴 시까지 또는 관련 법령에 따른 기간</li>
-        </ul>
       </details>
     </span>
   </label>
@@ -278,18 +270,18 @@ add_filter('the_title', function($title, $post_id){
   return sprintf('%s - #%d 피드백', $company, $idx);
 },10,2);
 
-// ① 우리 대표 가입 폼으로 제출이면, 그 요청에 한해 '새 사용자 기본역할'을 bw_owner로 임시 변경
+// 우리 폼으로 들어온 가입만 기본역할을 임시로 bw_owner로
 add_filter('pre_option_default_role', function($default){
-  if (!empty($_POST['bwf_role']) && $_POST['bwf_role'] === 'bw_owner') {
+  if (!empty($_POST['bwf_role']) && $_POST['bwf_role']==='bw_owner') {
     return 'bw_owner';
   }
   return $default;
 });
 
-// ② 어떤 경로로 가입되었든, 우리 폼 마커가 있으면 최종적으로 bw_owner로 강제
+// 가입이 끝난 직후에도 최종적으로 bw_owner로 '다시' 세팅 (다른 플러그인보다 늦게)
 add_action('user_register', function($user_id){
-  if (!empty($_POST['bwf_role']) && $_POST['bwf_role'] === 'bw_owner') {
-    $u = new WP_User($user_id);
-    $u->set_role('bw_owner');
+  if (!empty($_POST['bwf_role']) && $_POST['bwf_role']==='bw_owner') {
+    (new WP_User($user_id))->set_role('bw_owner');
+    update_user_meta($user_id, 'bwf_is_owner', 1); // 이 메타로 추후 확인도 가능
   }
-}, 10);
+}, 999);
