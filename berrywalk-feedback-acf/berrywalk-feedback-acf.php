@@ -2,12 +2,12 @@
 /**
  * Plugin Name: BW Owner Suite (light)
  * Description: 대표 질문지 + 회원가입(대표 전용) + 마이페이지. ACF 기반 경량 플러그인.
- * Version: 1.0.4
+ * Version: 1.4.5
  * Author: Berrywalk
  */
 if (!defined('ABSPATH')) exit;
 
-define('BWOS_VER', '1.2.2');
+define('BWOS_VER', '1.4.5');
 define('BWOS_DIR', plugin_dir_path(__FILE__));
 define('BWOS_URL', plugin_dir_url(__FILE__));
 
